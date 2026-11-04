@@ -1,0 +1,263 @@
+/* ---------- Цветовая схема (меняется в настройках) ---------- */
+:root {
+  --dog-primary: #f2b366;     /* основной окрас */
+  --dog-secondary: #d98a3d;   /* тень / ушки / хвост */
+  --dog-ear: #c9772b;         /* внешняя часть ушей */
+  --dog-belly: #fff1d9;       /* морда, пузико */
+  --dog-nose: #3a2a2e;
+  --dog-eye: #2b1d22;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Размер собаки задаёт --dog-px (трей / Ctrl+колесо / ползунок); окно бывает больше — под меню */
+#app {
+  width: var(--dog-px, 300px);
+  height: var(--dog-px, 300px);
+}
+
+#dog {
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: visible;
+  cursor: default;
+}
+#dog.grabbed { cursor: grabbing; }
+
+/* Градиенты берут цвета из переменных */
+.s-primary-hi { stop-color: color-mix(in srgb, var(--dog-primary) 70%, white); }
+.s-primary    { stop-color: var(--dog-primary); }
+.s-secondary  { stop-color: var(--dog-secondary); }
+.s-ear-hi     { stop-color: color-mix(in srgb, var(--dog-ear) 75%, white); }
+.s-ear        { stop-color: var(--dog-ear); }
+.s-belly-hi   { stop-color: color-mix(in srgb, var(--dog-belly) 60%, white); }
+.s-belly      { stop-color: var(--dog-belly); }
+.s-belly-lo   { stop-color: color-mix(in srgb, var(--dog-belly) 80%, var(--dog-primary)); }
+.s-nose-hi    { stop-color: color-mix(in srgb, var(--dog-nose) 60%, white); }
+.s-nose       { stop-color: var(--dog-nose); }
+.s-eye-hi     { stop-color: color-mix(in srgb, var(--dog-eye) 70%, #7a5a66); }
+.s-eye        { stop-color: var(--dog-eye); }
+
+/* Подготовка частей к будущей анимации */
+#dog g {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+#tail      { transform-origin: 10% 90%; }
+#ear-left  { transform-origin: 85% 10%; }
+#ear-right { transform-origin: 15% 10%; }
+#head      { transform-origin: 50% 90%; }
+#body      { transform-origin: 50% 100%; }
+
+/* Альтернативные формы (для HAPPY/SLEEPING) скрыты */
+.hidden { display: none; }
+
+/* =====================================================================
+   Анимации. Привязаны ТОЛЬКО к классам состояний (.state-*), которые
+   ставит DogStateMachine. В IDLE и SLEEPING бесконечных анимаций нет,
+   поэтому CPU ≈ 0. Скрытое окно (трей) ставит всё на паузу.
+   ===================================================================== */
+html.paused *,
+html.paused { animation-play-state: paused !important; }
+
+#brow-left, #brow-right { transform-box: fill-box; transform-origin: center; }
+#ear-left, #ear-right, #head, #body, #eyes-open { transition: transform 0.25s ease-out; }
+#brow-left, #brow-right, #mouth-smile { transition: transform 0.2s ease-out; }
+
+/* Эффекты скрыты по умолчанию */
+.heart { fill: #ff4d6d; stroke: #fff; stroke-width: 2; stroke-opacity: 0.8; opacity: 0; }
+#anger { opacity: 0; fill: none; stroke: #e11d2e; stroke-width: 6; stroke-linecap: round; }
+.z { opacity: 0; }
+
+/* ---------- HAPPY: виляет хвостом, глаза-дуги, язык, сердечки ---------- */
+#dog.state-happy #eyes-open,
+#dog.state-eating #eyes-open { display: none; }
+#dog.state-happy #eyes-happy,
+#dog.state-eating #eyes-happy { display: inline; }
+#dog.state-happy #tongue { display: inline; }
+#dog.state-happy #tail,
+#dog.state-eating #tail { animation: wag 0.32s ease-in-out infinite; }
+#dog.state-happy .heart { animation: heart-float 1.6s ease-out infinite; }
+#dog.state-happy .h2 { animation-delay: 0.5s; }
+#dog.state-happy .h3 { animation-delay: 1s; }
+
+@keyframes wag {
+  0%, 100% { transform: rotate(-14deg); }
+  50%      { transform: rotate(24deg); }
+}
+@keyframes heart-float {
+  0%   { opacity: 0; transform: translateY(10px) scale(0.5); }
+  25%  { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-34px) scale(1.1); }
+}
+
+/* ---------- ANGRY: тряска, прижатые уши, злые брови, красный знак ---------- */
+#dog.state-angry { animation: shake 0.09s linear infinite; }
+#dog.state-angry #ear-left  { transform: rotate(38deg) scale(1, 0.85); }
+#dog.state-angry #ear-right { transform: rotate(-38deg) scale(1, 0.85); }
+#dog.state-angry #brow-left  { transform: translateY(7px) rotate(22deg); }
+#dog.state-angry #brow-right { transform: translateY(7px) rotate(-22deg); }
+#dog.state-angry #eyes-open  { transform: scaleY(0.82); }
+#dog.state-angry #mouth-smile { transform: scaleY(-1); transform-box: fill-box; transform-origin: center; }
+#dog.state-angry #anger { opacity: 1; animation: anger-pulse 0.45s ease-in-out infinite; }
+
+@keyframes shake {
+  0%   { transform: translate(0, 0); }
+  25%  { transform: translate(-2.5px, 1px); }
+  50%  { transform: translate(2px, -1px); }
+  75%  { transform: translate(-1.5px, -1.5px); }
+  100% { transform: translate(0, 0); }
+}
+@keyframes anger-pulse {
+  0%, 100% { transform: scale(0.85); }
+  50%      { transform: scale(1.2); }
+}
+
+/* ---------- SLEEPING: глаза закрыты, лежит на лапках, Zzz ---------- */
+#dog.state-sleeping #eyes-open { display: none; }
+#dog.state-sleeping #eyes-closed { display: inline; }
+#dog.state-sleeping #head { transform: translateY(20px); }
+#dog.state-sleeping #body { transform: translateY(10px) scaleY(0.88); }
+#dog.state-sleeping #ear-left  { transform: rotate(8deg); }
+#dog.state-sleeping #ear-right { transform: rotate(-8deg); }
+/* Zzz проигрываются 3 раза и замирают — дальше никакой анимации */
+#dog.state-sleeping .z { animation: z-float 2.4s ease-out 3 forwards; }
+#dog.state-sleeping .z2 { animation-delay: 0.6s; }
+#dog.state-sleeping .z3 { animation-delay: 1.2s; }
+
+@keyframes z-float {
+  0%   { opacity: 0; transform: translate(-4px, 10px) scale(0.7); }
+  30%  { opacity: 1; }
+  100% { opacity: 1; transform: translate(4px, -6px) scale(1); }
+}
+
+/* ---------- OFFENDED: грустная, уши и хвост опущены, слезинка ---------- */
+#tear { opacity: 0; }
+#dog.state-offended #tear { opacity: calc(1 - var(--forgive, 0)); }
+#dog.state-offended #head { transform: translateY(8px); }
+#dog.state-offended #eyes-open { transform: translateY(3px) scaleY(0.92); }
+#dog.state-offended #brow-left  { transform: translateY(-2px) rotate(-22deg); }
+#dog.state-offended #brow-right { transform: translateY(-2px) rotate(22deg); }
+#dog.state-offended #ear-left  { transform: rotate(18deg) scale(1, 0.92); }
+#dog.state-offended #ear-right { transform: rotate(-18deg) scale(1, 0.92); }
+#dog.state-offended #tail { transform: rotate(38deg); }
+#dog.state-offended #mouth-smile { transform: scaleY(-1); transform-box: fill-box; transform-origin: center; }
+#dog.state-offended #tear { transition: opacity 0.3s linear; }
+
+/* =====================================================================
+   HTML-меню по правому клику (под системное: скругления, тень, блюр)
+   ===================================================================== */
+:root {
+  --menu-bg: rgba(255, 255, 255, 0.94);
+  --menu-fg: #2b2a33;
+  --menu-muted: #6d6a78;
+  --menu-hover: rgba(242, 161, 77, 0.16);
+  --menu-border: rgba(0, 0, 0, 0.08);
+  --menu-accent: #f2a14d;
+  --menu-danger: #d6455d;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --menu-bg: rgba(40, 38, 48, 0.94);
+    --menu-fg: #f1eff7;
+    --menu-muted: #a29fb0;
+    --menu-hover: rgba(242, 161, 77, 0.22);
+    --menu-border: rgba(255, 255, 255, 0.1);
+  }
+}
+
+#ctx-menu {
+  position: fixed;
+  display: none;
+  box-sizing: border-box;
+  width: 208px;
+  padding: 10px;
+  border-radius: 14px;
+  background: var(--menu-bg);
+  color: var(--menu-fg);
+  border: 1px solid var(--menu-border);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28), 0 2px 6px rgba(0, 0, 0, 0.16);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  font: 13px/1.3 "Segoe UI", system-ui, sans-serif;
+  z-index: 10;
+}
+#ctx-menu.open { display: block; animation: ctx-pop 0.12s ease-out 1; }
+@keyframes ctx-pop {
+  from { opacity: 0; transform: scale(0.94); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.ctx-title { font-weight: 600; padding: 2px 6px 8px; }
+.ctx-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 0 6px; color: var(--menu-muted); font-size: 12px;
+}
+.ctx-row output { color: var(--menu-fg); font-variant-numeric: tabular-nums; }
+
+#ctx-menu input[type="range"] {
+  width: 100%; margin: 6px 0 8px; accent-color: var(--menu-accent); cursor: pointer;
+}
+#ctx-menu button {
+  display: block; width: 100%; text-align: left; margin: 2px 0 0;
+  padding: 8px 10px; border: 0; border-radius: 9px;
+  background: transparent; color: inherit; font: inherit; cursor: pointer;
+}
+#ctx-menu button:hover { background: var(--menu-hover); }
+#ctx-menu button.danger { color: var(--menu-danger); }
+#ctx-menu button.danger:hover { background: rgba(214, 69, 93, 0.14); }
+
+/* ---------- EATING: косточка падает в рот, собака жуёт, «+1» и сердечки ----------
+   Тайминги синхронны с EAT_LAND_MS (0.9 с) в DogStateMachine.ts. */
+#bone { opacity: 0; }
+.plus1 { opacity: 0; }
+#mouth-open { display: none; transform-box: fill-box; transform-origin: 50% 0%; }
+
+#dog.state-eating #mouth-smile { display: none; }
+#dog.state-eating #mouth-open {
+  display: inline;
+  animation:
+    mouth-catch 0.9s ease-out both,
+    mouth-chew 0.3s ease-in-out 0.9s 4 alternate;
+}
+#dog.state-eating #bone { animation: bone-fall 0.9s cubic-bezier(0.45, 0, 0.9, 0.6) forwards; }
+#dog.state-eating .plus1 { animation: plus-float 1.3s ease-out 0.9s both; }
+#dog.state-eating .heart { animation: heart-float 1.3s ease-out 0.9s 2 both; }
+#dog.state-eating .h2 { animation-delay: 1.2s; }
+#dog.state-eating .h3 { animation-delay: 1.5s; }
+
+@keyframes bone-fall {
+  0%   { opacity: 1; transform: translateY(-26px) rotate(-25deg); }
+  85%  { opacity: 1; transform: translateY(150px) rotate(12deg) scale(1); }
+  100% { opacity: 0; transform: translateY(166px) rotate(18deg) scale(0.3); }
+}
+@keyframes mouth-catch {
+  0%   { transform: scale(0.4, 0.3); }
+  100% { transform: scale(1.05, 1); }
+}
+@keyframes mouth-chew {
+  0%   { transform: scale(1.05, 1); }
+  100% { transform: scale(0.8, 0.35); }
+}
+@keyframes plus-float {
+  0%   { opacity: 0; transform: translateY(8px) scale(0.6); }
+  25%  { opacity: 1; transform: translateY(-2px) scale(1.1); }
+  100% { opacity: 0; transform: translateY(-34px) scale(1); }
+}
+
+.ctx-footer {
+  margin: 8px 4px 0; padding-top: 8px;
+  border-top: 1px solid var(--menu-border);
+  color: var(--menu-muted); font-size: 12px; text-align: center;
+}
