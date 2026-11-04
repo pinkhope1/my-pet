@@ -1,11 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import "./style.css";
-import { DOG_SVG } from "./dog.svg";
-import { DogStateMachine } from "./DogStateMachine";
 import { initContextMenu } from "./contextMenu";
 import { initInput } from "./input";
-import { addBoneEaten, loadSettings, setColors, setDragMode } from "./settings";
+import { PetHost } from "./petHost";
+import { addFoodEaten, loadSettings, setColors, setDragMode } from "./settings";
 import {
   initWindowControl,
   IS_TAURI,
@@ -17,20 +16,17 @@ import {
 import { returnHome, runAway } from "./windowMotion";
 
 async function bootstrap(): Promise<void> {
-  // Сначала настройки: цвета (CSS-переменные), dragMode, размер окна.
+  // Сначала настройки: цвета (CSS-переменные), dragMode, размер окна, выбранный питомец.
   const settings = await loadSettings();
-  document.documentElement.style.setProperty("--dog-px", `${settings.size}px`);
+  document.documentElement.style.setProperty("--pet-px", `${settings.size}px`);
 
   const app = document.getElementById("app");
   if (!app) throw new Error("#app not found");
-  app.innerHTML = DOG_SVG;
 
-  const dog = document.getElementById("dog");
-  if (!dog) throw new Error("#dog not found");
-
-  const fsm = new DogStateMachine(dog, {
-    // Косточка долетела до рта: +1 в счётчик (settings.json).
-    onEat: () => addBoneEaten(),
+  // Хуки общие для всех питомцев: хост пересоздаёт машину состояний, а хуки остаются те же.
+  const host = new PetHost(app, {
+    // Еда долетела до рта: +1 в счётчик этого питомца (кости / арбузы, settings.json).
+    onEat: () => addFoodEaten(host.def.foodCounter),
     onChange: (next, prev) => {
       // ANGRY → OFFENDED: убегаем к краю экрана; выход из OFFENDED — возвращаемся.
       if (next === "OFFENDED") void runAway();
@@ -38,24 +34,31 @@ async function bootstrap(): Promise<void> {
 
       // SLEEPING: Rust-опрос курсора на паузе; при пробуждении возобновляем.
       setPollInterval(next === "SLEEPING" ? 0 : 50);
-      // Поза изменилась (уши, голова) — хитбоксы заново.
+      // Поза изменилась (уши, голова, трюк) — хитбоксы заново: сразу и когда CSS-переходы
+      // (0,25 с) доиграют, иначе рамки остались бы по промежуточной позе.
       requestAnimationFrame(refreshHitRegions);
+      window.setTimeout(refreshHitRegions, 320);
     },
   });
+  host.mount(settings.currentPet);
 
   // Окно скрыто (трей) — замораживаем все CSS-анимации.
   document.addEventListener("visibilitychange", () =>
     document.documentElement.classList.toggle("paused", document.hidden),
   );
 
-  // Меню трея «Позвать собаку»: OFFENDED → IDLE.
-  if (IS_TAURI) void listen("call-dog", () => fsm.callBack());
-
-  // Меню трея «Покормить».
-  if (IS_TAURI) void listen("feed-dog", () => fsm.feed());
-
-  // Выход из трея: сперва дописать настройки (Rust подстрахует выходом через 1,5 с).
-  if (IS_TAURI) void listen("request-quit", () => void quitApp());
+  // Меню трея: «Позвать собаку» (OFFENDED → IDLE) и «Покормить».
+  if (IS_TAURI) {
+    void listen("call-dog", () => host.fsm.callBack());
+    void listen("feed-dog", () => host.fsm.feed());
+    // Трюки из трея: индекс 0/1 → кнопки активного питомца.
+    void listen<number>("do-trick", (e) => {
+      const t = host.def.tricks[e.payload];
+      if (t) host.fsm.trick(t.state);
+    });
+    // Выход из трея: сперва дописать настройки (Rust подстрахует выходом через 1,5 с).
+    void listen("request-quit", () => void quitApp());
+  }
 
   // F12 — инструменты разработчика, только в режиме разработки (`tauri dev`).
   // В релизной сборке обработчик не регистрируется (и Rust-команда тоже пустая).
@@ -67,9 +70,9 @@ async function bootstrap(): Promise<void> {
     });
   }
 
-  initInput(dog, fsm);
-  initWindowControl(dog, () => fsm.activity());
-  initContextMenu(dog, fsm);
+  initInput(app, host);
+  initWindowControl(app, () => host.fsm.activity());
+  initContextMenu(host);
 
   // Восстановить сохранённый размер окна (без повторной записи в файл).
   if (IS_TAURI && settings.size !== Math.round(window.innerWidth)) {
@@ -77,7 +80,7 @@ async function bootstrap(): Promise<void> {
   }
 
   // Для отладки из консоли.
-  Object.assign(window, { dogFsm: fsm, pet: { setColors, setDragMode, settings } });
+  Object.assign(window, { petHost: host, pet: { setColors, setDragMode, settings } });
 }
 
 void bootstrap();

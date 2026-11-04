@@ -61,9 +61,9 @@ const clampSize = (n: number) => Math.min(MAX_SIZE, Math.max(MIN_SIZE, Math.roun
 
 export const getTargetSize = () => targetSize;
 
-/** Собака рисуется в квадрате --dog-px, а окно может быть больше (под меню). */
+/** Собака рисуется в квадрате --pet-px, а окно может быть больше (под меню). */
 function setDogPx(px: number): void {
-  document.documentElement.style.setProperty("--dog-px", `${px}px`);
+  document.documentElement.style.setProperty("--pet-px", `${px}px`);
 }
 
 /** Применяет размер окна = max(размер собаки, минимум под меню); подхватывает изменения на лету. */
@@ -101,7 +101,7 @@ export async function setFrameMin(px: number): Promise<void> {
   await applyFrame();
 }
 
-export function initWindowControl(dog: HTMLElement, onActivity: () => void): void {
+export function initWindowControl(area: HTMLElement, onActivity: () => void): void {
   targetSize = clampSize(settings.size); // настройки к этому моменту уже загружены
   setDogPx(targetSize);
   refreshHitRegions();
@@ -116,7 +116,7 @@ export function initWindowControl(dog: HTMLElement, onActivity: () => void): voi
       refreshHitRegions();
     });
   };
-  new ResizeObserver(scheduleRefresh).observe(dog);
+  new ResizeObserver(scheduleRefresh).observe(area);
   window.addEventListener("resize", scheduleRefresh);
 
   // Ctrl + колесо над собакой — плавное масштабирование 100…600 px.

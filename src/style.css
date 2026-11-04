@@ -20,20 +20,20 @@ body {
   -webkit-user-select: none;
 }
 
-/* Размер собаки задаёт --dog-px (трей / Ctrl+колесо / ползунок); окно бывает больше — под меню */
+/* Размер собаки задаёт --pet-px (трей / Ctrl+колесо / ползунок); окно бывает больше — под меню */
 #app {
-  width: var(--dog-px, 300px);
-  height: var(--dog-px, 300px);
+  width: var(--pet-px, 300px);
+  height: var(--pet-px, 300px);
 }
 
-#dog {
+#pet {
   width: 100%;
   height: 100%;
   display: block;
   overflow: visible;
   cursor: default;
 }
-#dog.grabbed { cursor: grabbing; }
+#pet.grabbed { cursor: grabbing; }
 
 /* Градиенты берут цвета из переменных */
 .s-primary-hi { stop-color: color-mix(in srgb, var(--dog-primary) 70%, white); }
@@ -50,7 +50,7 @@ body {
 .s-eye        { stop-color: var(--dog-eye); }
 
 /* Подготовка частей к будущей анимации */
-#dog g {
+#pet g {
   transform-box: fill-box;
   transform-origin: center;
 }
@@ -65,7 +65,7 @@ body {
 
 /* =====================================================================
    Анимации. Привязаны ТОЛЬКО к классам состояний (.state-*), которые
-   ставит DogStateMachine. В IDLE и SLEEPING бесконечных анимаций нет,
+   ставит PetStateMachine. В IDLE и SLEEPING бесконечных анимаций нет,
    поэтому CPU ≈ 0. Скрытое окно (трей) ставит всё на паузу.
    ===================================================================== */
 html.paused *,
@@ -81,16 +81,27 @@ html.paused { animation-play-state: paused !important; }
 .z { opacity: 0; }
 
 /* ---------- HAPPY: виляет хвостом, глаза-дуги, язык, сердечки ---------- */
-#dog.state-happy #eyes-open,
-#dog.state-eating #eyes-open { display: none; }
-#dog.state-happy #eyes-happy,
-#dog.state-eating #eyes-happy { display: inline; }
-#dog.state-happy #tongue { display: inline; }
-#dog.state-happy #tail,
-#dog.state-eating #tail { animation: wag 0.32s ease-in-out infinite; }
-#dog.state-happy .heart { animation: heart-float 1.6s ease-out infinite; }
-#dog.state-happy .h2 { animation-delay: 0.5s; }
-#dog.state-happy .h3 { animation-delay: 1s; }
+#pet.state-happy #eyes-open,
+#pet.state-eating #eyes-open,
+#pet.state-playing #eyes-open,
+#pet.state-dancing #eyes-open,
+#pet.state-spinning #eyes-open,
+#pet.state-splashing #eyes-open { display: none; }
+#pet.state-happy #eyes-happy,
+#pet.state-eating #eyes-happy,
+#pet.state-playing #eyes-happy,
+#pet.state-dancing #eyes-happy,
+#pet.state-spinning #eyes-happy,
+#pet.state-splashing #eyes-happy { display: inline; }
+#pet.state-happy #tongue { display: inline; }
+#pet.state-happy #tail,
+#pet.state-eating #tail,
+#pet.state-playing #tail,
+#pet.state-digging #tail,
+#pet.state-dancing #tail { animation: wag 0.32s ease-in-out infinite; }
+#pet.state-happy .heart { animation: heart-float 1.6s ease-out infinite; }
+#pet.state-happy .h2 { animation-delay: 0.5s; }
+#pet.state-happy .h3 { animation-delay: 1s; }
 
 @keyframes wag {
   0%, 100% { transform: rotate(-14deg); }
@@ -103,14 +114,14 @@ html.paused { animation-play-state: paused !important; }
 }
 
 /* ---------- ANGRY: тряска, прижатые уши, злые брови, красный знак ---------- */
-#dog.state-angry { animation: shake 0.09s linear infinite; }
-#dog.state-angry #ear-left  { transform: rotate(38deg) scale(1, 0.85); }
-#dog.state-angry #ear-right { transform: rotate(-38deg) scale(1, 0.85); }
-#dog.state-angry #brow-left  { transform: translateY(7px) rotate(22deg); }
-#dog.state-angry #brow-right { transform: translateY(7px) rotate(-22deg); }
-#dog.state-angry #eyes-open  { transform: scaleY(0.82); }
-#dog.state-angry #mouth-smile { transform: scaleY(-1); transform-box: fill-box; transform-origin: center; }
-#dog.state-angry #anger { opacity: 1; animation: anger-pulse 0.45s ease-in-out infinite; }
+#pet.state-angry { animation: shake 0.09s linear infinite; }
+#pet.state-angry #ear-left  { transform: rotate(38deg) scale(1, 0.85); }
+#pet.state-angry #ear-right { transform: rotate(-38deg) scale(1, 0.85); }
+#pet.state-angry #brow-left  { transform: translateY(7px) rotate(22deg); }
+#pet.state-angry #brow-right { transform: translateY(7px) rotate(-22deg); }
+#pet.state-angry #eyes-open  { transform: scaleY(0.82); }
+#pet.state-angry #mouth-smile { transform: scaleY(-1); transform-box: fill-box; transform-origin: center; }
+#pet.state-angry #anger { opacity: 1; animation: anger-pulse 0.45s ease-in-out infinite; }
 
 @keyframes shake {
   0%   { transform: translate(0, 0); }
@@ -125,16 +136,16 @@ html.paused { animation-play-state: paused !important; }
 }
 
 /* ---------- SLEEPING: глаза закрыты, лежит на лапках, Zzz ---------- */
-#dog.state-sleeping #eyes-open { display: none; }
-#dog.state-sleeping #eyes-closed { display: inline; }
-#dog.state-sleeping #head { transform: translateY(20px); }
-#dog.state-sleeping #body { transform: translateY(10px) scaleY(0.88); }
-#dog.state-sleeping #ear-left  { transform: rotate(8deg); }
-#dog.state-sleeping #ear-right { transform: rotate(-8deg); }
+#pet.state-sleeping #eyes-open { display: none; }
+#pet.state-sleeping #eyes-closed { display: inline; }
+#pet.state-sleeping #head { transform: translateY(20px); }
+#pet.state-sleeping #body { transform: translateY(10px) scaleY(0.88); }
+#pet.state-sleeping #ear-left  { transform: rotate(8deg); }
+#pet.state-sleeping #ear-right { transform: rotate(-8deg); }
 /* Zzz проигрываются 3 раза и замирают — дальше никакой анимации */
-#dog.state-sleeping .z { animation: z-float 2.4s ease-out 3 forwards; }
-#dog.state-sleeping .z2 { animation-delay: 0.6s; }
-#dog.state-sleeping .z3 { animation-delay: 1.2s; }
+#pet.state-sleeping .z { animation: z-float 2.4s ease-out 3 forwards; }
+#pet.state-sleeping .z2 { animation-delay: 0.6s; }
+#pet.state-sleeping .z3 { animation-delay: 1.2s; }
 
 @keyframes z-float {
   0%   { opacity: 0; transform: translate(-4px, 10px) scale(0.7); }
@@ -144,16 +155,16 @@ html.paused { animation-play-state: paused !important; }
 
 /* ---------- OFFENDED: грустная, уши и хвост опущены, слезинка ---------- */
 #tear { opacity: 0; }
-#dog.state-offended #tear { opacity: calc(1 - var(--forgive, 0)); }
-#dog.state-offended #head { transform: translateY(8px); }
-#dog.state-offended #eyes-open { transform: translateY(3px) scaleY(0.92); }
-#dog.state-offended #brow-left  { transform: translateY(-2px) rotate(-22deg); }
-#dog.state-offended #brow-right { transform: translateY(-2px) rotate(22deg); }
-#dog.state-offended #ear-left  { transform: rotate(18deg) scale(1, 0.92); }
-#dog.state-offended #ear-right { transform: rotate(-18deg) scale(1, 0.92); }
-#dog.state-offended #tail { transform: rotate(38deg); }
-#dog.state-offended #mouth-smile { transform: scaleY(-1); transform-box: fill-box; transform-origin: center; }
-#dog.state-offended #tear { transition: opacity 0.3s linear; }
+#pet.state-offended #tear { opacity: calc(1 - var(--forgive, 0)); }
+#pet.state-offended #head { transform: translateY(8px); }
+#pet.state-offended #eyes-open { transform: translateY(3px) scaleY(0.92); }
+#pet.state-offended #brow-left  { transform: translateY(-2px) rotate(-22deg); }
+#pet.state-offended #brow-right { transform: translateY(-2px) rotate(22deg); }
+#pet.state-offended #ear-left  { transform: rotate(18deg) scale(1, 0.92); }
+#pet.state-offended #ear-right { transform: rotate(-18deg) scale(1, 0.92); }
+#pet.state-offended #tail { transform: rotate(38deg); }
+#pet.state-offended #mouth-smile { transform: scaleY(-1); transform-box: fill-box; transform-origin: center; }
+#pet.state-offended #tear { transition: opacity 0.3s linear; }
 
 /* =====================================================================
    HTML-меню по правому клику (под системное: скругления, тень, блюр)
@@ -218,29 +229,29 @@ html.paused { animation-play-state: paused !important; }
 #ctx-menu button.danger { color: var(--menu-danger); }
 #ctx-menu button.danger:hover { background: rgba(214, 69, 93, 0.14); }
 
-/* ---------- EATING: косточка падает в рот, собака жуёт, «+1» и сердечки ----------
-   Тайминги синхронны с EAT_LAND_MS (0.9 с) в DogStateMachine.ts. */
-#bone { opacity: 0; }
+/* ---------- EATING: еда падает в рот, собака жуёт, «+1» и сердечки ----------
+   Тайминги синхронны с EAT_LAND_MS (0.9 с) в PetStateMachine.ts. */
+#food { opacity: 0; }
 .plus1 { opacity: 0; }
 #mouth-open { display: none; transform-box: fill-box; transform-origin: 50% 0%; }
 
-#dog.state-eating #mouth-smile { display: none; }
-#dog.state-eating #mouth-open {
+#pet.state-eating #mouth-smile { display: none; }
+#pet.state-eating #mouth-open {
   display: inline;
   animation:
     mouth-catch 0.9s ease-out both,
     mouth-chew 0.3s ease-in-out 0.9s 4 alternate;
 }
-#dog.state-eating #bone { animation: bone-fall 0.9s cubic-bezier(0.45, 0, 0.9, 0.6) forwards; }
-#dog.state-eating .plus1 { animation: plus-float 1.3s ease-out 0.9s both; }
-#dog.state-eating .heart { animation: heart-float 1.3s ease-out 0.9s 2 both; }
-#dog.state-eating .h2 { animation-delay: 1.2s; }
-#dog.state-eating .h3 { animation-delay: 1.5s; }
+#pet.state-eating #food { animation: food-fall 0.9s cubic-bezier(0.45, 0, 0.9, 0.6) forwards; }
+#pet.state-eating .plus1 { animation: plus-float 1.3s ease-out 0.9s both; }
+#pet.state-eating .heart { animation: heart-float 1.3s ease-out 0.9s 2 both; }
+#pet.state-eating .h2 { animation-delay: 1.2s; }
+#pet.state-eating .h3 { animation-delay: 1.5s; }
 
-@keyframes bone-fall {
+@keyframes food-fall {
   0%   { opacity: 1; transform: translateY(-26px) rotate(-25deg); }
-  85%  { opacity: 1; transform: translateY(150px) rotate(12deg) scale(1); }
-  100% { opacity: 0; transform: translateY(166px) rotate(18deg) scale(0.3); }
+  85%  { opacity: 1; transform: translateY(calc(var(--mouth-y, 166px) - 16px)) rotate(12deg) scale(1); }
+  100% { opacity: 0; transform: translateY(var(--mouth-y, 166px)) rotate(18deg) scale(0.3); }
 }
 @keyframes mouth-catch {
   0%   { transform: scale(0.4, 0.3); }
@@ -260,4 +271,207 @@ html.paused { animation-play-state: paused !important; }
   margin: 8px 4px 0; padding-top: 8px;
   border-top: 1px solid var(--menu-border);
   color: var(--menu-muted); font-size: 12px; text-align: center;
+}
+
+/* =====================================================================
+   Питомцы: палитры и особенности. Общие анимации состояний выше работают
+   для всех (одинаковые id частей); здесь только отличия.
+   ===================================================================== */
+#pet { --mouth-y: 166px; } /* куда падает косточка (высота рта) */
+
+/* Бегемотик: сине-фиолетовая палитра (настройки colors относятся к собаке) */
+#pet.pet-hippo {
+  --dog-primary: #8f8cf2;
+  --dog-secondary: #5a50cc;
+  --dog-ear: #7a70e6;
+  --dog-belly: #ece7ff;
+  --dog-nose: #2b2458;
+  --dog-eye: #1d1840;
+  --mouth-y: 198px;
+}
+/* Маленькие ушки бегемота крепятся снизу — поворачиваем вокруг основания */
+#pet.pet-hippo #ear-left  { transform-origin: 60% 90%; }
+#pet.pet-hippo #ear-right { transform-origin: 40% 90%; }
+#pet.pet-hippo.state-angry #ear-left  { transform: rotate(-42deg) scale(1, 0.8); }
+#pet.pet-hippo.state-angry #ear-right { transform: rotate(42deg) scale(1, 0.8); }
+#pet.pet-hippo.state-offended #ear-left  { transform: rotate(-24deg) scale(1, 0.9); }
+#pet.pet-hippo.state-offended #ear-right { transform: rotate(24deg) scale(1, 0.9); }
+#pet.pet-hippo.state-sleeping #ear-left  { transform: rotate(-10deg); }
+#pet.pet-hippo.state-sleeping #ear-right { transform: rotate(10deg); }
+#pet.pet-hippo #cheeks { transform-box: fill-box; transform-origin: center; }
+
+/* ---------- PLAYING у собаки: мячик, погоня и принос ----------
+   Длительность 3.6 с = playMs в pets.ts. Мячик летит вправо, собака
+   прыгает за ним, берёт и приносит обратно к лапам. */
+#ball { opacity: 0; }
+#pet.pet-dog.state-playing #rig  { animation: dog-chase 3.6s ease-in-out both; }
+#pet.pet-dog.state-playing #ball { animation: ball-play 3.6s ease-in-out both; }
+
+@keyframes dog-chase {
+  0%, 14% { transform: translate(0, 0); }
+  22%     { transform: translate(14px, -28px); }
+  32%     { transform: translate(46px, 0); }
+  39%     { transform: translate(52px, -20px); }
+  47%, 58% { transform: translate(54px, 0); }
+  66%     { transform: translate(30px, -14px); }
+  80%, 100% { transform: translate(0, 0); }
+}
+@keyframes ball-play {
+  0%   { opacity: 0; transform: translate(0, -20px) scale(0.5); }
+  5%   { opacity: 1; transform: translate(8px, -34px) scale(1) rotate(0deg); }
+  22%  { transform: translate(46px, -128px) rotate(240deg); }
+  36%  { transform: translate(86px, 0) rotate(480deg); }
+  42%  { transform: translate(100px, -26px) rotate(560deg); }
+  48%  { transform: translate(108px, 0) rotate(640deg); }
+  58%  { transform: translate(108px, 0) rotate(640deg); }
+  64%  { transform: translate(54px, -98px) rotate(720deg); }
+  80%  { transform: translate(0, -98px) rotate(720deg); }
+  92%  { opacity: 1; transform: translate(16px, -4px) rotate(780deg); }
+  100% { opacity: 0; transform: translate(16px, -4px) rotate(780deg); }
+}
+
+/* ---------- PLAYING у бегемота: надутые щёки и мыльные пузыри ---------- */
+.bubble { opacity: 0; }
+#pet.pet-hippo.state-playing #cheeks { animation: cheek-puff 3.4s ease-in-out both; }
+#pet.pet-hippo.state-playing #mouth-smile { display: none; }
+#pet.pet-hippo.state-playing #mouth-open {
+  display: inline;
+  transform: scale(0.28, 0.3);
+  animation: mouth-blow 0.45s ease-in-out infinite alternate;
+}
+#pet.pet-hippo.state-playing .bubble { animation: bubble-rise 1.9s ease-out var(--d, 0s) both; }
+
+@keyframes cheek-puff {
+  0%   { transform: scale(1); }
+  12%  { transform: scale(1.6, 1.45); }
+  26%  { transform: scale(1.35, 1.3); }
+  38%  { transform: scale(1.65, 1.5); }
+  54%  { transform: scale(1.4, 1.3); }
+  70%  { transform: scale(1.65, 1.5); }
+  86%  { transform: scale(1.3); }
+  100% { transform: scale(1); }
+}
+@keyframes mouth-blow {
+  from { transform: scale(0.22, 0.22); }
+  to   { transform: scale(0.34, 0.4); }
+}
+@keyframes bubble-rise {
+  0%   { opacity: 0; transform: translate(0, 0) scale(0.3); }
+  15%  { opacity: 0.95; transform: translate(calc(var(--dx, 0px) * 0.2), -14px) scale(1); }
+  100% { opacity: 0; transform: translate(var(--dx, 0px), -150px) scale(1.15); }
+}
+
+/* Меню: блок смены питомца */
+.ctx-section {
+  margin: 8px 6px 4px; padding-top: 8px; border-top: 1px solid var(--menu-border);
+  color: var(--menu-muted); font-size: 12px;
+}
+.ctx-pets { display: flex; gap: 6px; margin-bottom: 4px; }
+#ctx-menu .ctx-pets button {
+  flex: 1; margin: 0; padding: 6px 4px; text-align: center; font-size: 12px;
+  border: 1px solid var(--menu-border);
+}
+#ctx-menu .ctx-pets button.active {
+  background: var(--menu-accent); border-color: transparent; color: #2b1d0a; font-weight: 600;
+}
+
+
+/* =====================================================================
+   Одиночный клик: подпрыгивание + случайный символ над головой на 1 с.
+   Класс .reacting ставит PetStateMachine.singleClick() только в IDLE/HAPPY.
+   ===================================================================== */
+#rig { transform-origin: 50% 100%; }
+.react-sym { opacity: 0; }
+#pet.reacting #rig { animation: pet-bounce 0.4s ease-out; }
+#pet.reacting .react-sym { animation: react-pop 1s ease-out both; }
+
+@keyframes pet-bounce {
+  0%   { transform: translateY(0) scale(1, 1); }
+  35%  { transform: translateY(-20px) scale(0.97, 1.05); }
+  70%  { transform: translateY(0) scale(1.05, 0.93); }
+  100% { transform: translateY(0) scale(1, 1); }
+}
+@keyframes react-pop {
+  0%   { opacity: 0; transform: translateY(12px) scale(0.4); }
+  18%  { opacity: 1; transform: translateY(-2px) scale(1.25); }
+  32%  { transform: translateY(0) scale(1); }
+  80%  { opacity: 1; transform: translateY(-6px) scale(1); }
+  100% { opacity: 0; transform: translateY(-16px) scale(0.9); }
+}
+
+/* =====================================================================
+   Трюки. Длительности совпадают с TRICK_MS в PetStateMachine.ts.
+   ===================================================================== */
+
+/* ---------- DIGGING у собаки (2 с): наклон вперёд, лапы перебирают, летит земля ---------- */
+.dirt { opacity: 0; }
+#pet.pet-dog.state-digging #head { transform: translateY(18px) rotate(7deg) scale(1.03); }
+#pet.pet-dog.state-digging #body { transform: translateY(10px) scaleY(0.92); }
+#pet.pet-dog.state-digging #ear-left  { transform: rotate(-10deg); }
+#pet.pet-dog.state-digging #ear-right { transform: rotate(10deg); }
+#pet.pet-dog.state-digging #paw-left  { animation: dig-paw 0.16s ease-in-out infinite alternate; }
+#pet.pet-dog.state-digging #paw-right { animation: dig-paw 0.16s ease-in-out infinite alternate-reverse; }
+#pet.pet-dog.state-digging .dirt { animation: dirt-fly 0.7s ease-out var(--d, 0s) infinite; }
+
+@keyframes dig-paw {
+  from { transform: translateY(2px) rotate(-6deg); }
+  to   { transform: translateY(-15px) rotate(6deg); }
+}
+@keyframes dirt-fly {
+  0%   { opacity: 0; transform: translate(0, 0) scale(0.6); }
+  10%  { opacity: 1; }
+  55%  { opacity: 1; transform: translate(calc(var(--dx, 0px) * 0.75), var(--dy, -60px)) scale(1); }
+  100% { opacity: 0; transform: translate(var(--dx, 0px), 14px) scale(0.9); }
+}
+
+/* ---------- DANCING у бегемота (3 с): покачивается, летят нотки ---------- */
+.note { opacity: 0; }
+#pet.pet-hippo.state-dancing #rig { animation: dance-sway 0.75s ease-in-out infinite alternate; }
+#pet.pet-hippo.state-dancing .note { animation: note-float 1.6s ease-out var(--d, 0s) infinite; }
+
+@keyframes dance-sway {
+  from { transform: rotate(-7deg) scale(1.03, 0.96); }
+  to   { transform: rotate(7deg) scale(0.97, 1.04); }
+}
+@keyframes note-float {
+  0%   { opacity: 0; transform: translate(0, 10px) rotate(-12deg) scale(0.6); }
+  20%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--dx, 0px), -64px) rotate(16deg) scale(1.1); }
+}
+
+/* ---------- SPINNING у собаки (двойной клик, 1,5 с): крутится вокруг оси и садится ---------- */
+#pet.pet-dog.state-spinning #rig { animation: dog-spin 1.5s ease-in-out both; }
+
+@keyframes dog-spin {
+  0%   { transform: translateY(0) scaleX(1); }
+  9%   { transform: translateY(-14px) scaleX(0.08); }
+  18%  { transform: translateY(-18px) scaleX(-1); }
+  27%  { transform: translateY(-14px) scaleX(0.08); }
+  36%  { transform: translateY(0) scaleX(1); }
+  45%  { transform: translateY(-10px) scaleX(0.08); }
+  54%  { transform: translateY(-12px) scaleX(-1); }
+  63%  { transform: translateY(-8px) scaleX(0.08); }
+  72%  { transform: translateY(0) scaleX(1); }
+  85%  { transform: translateY(7px) scale(1.04, 0.9); }
+  100% { transform: translateY(0) scale(1, 1); }
+}
+
+/* ---------- SPLASHING у бегемота (двойной клик, 1,5 с): бомбочка и брызги ---------- */
+.drop { opacity: 0; }
+#pet.pet-hippo.state-splashing #rig { animation: hippo-bomb 1.5s ease-in-out both; }
+#pet.pet-hippo.state-splashing .drop { animation: drop-burst 0.7s ease-out 0.82s both; }
+
+@keyframes hippo-bomb {
+  0%   { transform: translateY(0) scale(1, 1); }
+  20%  { transform: translateY(8px) scale(1.1, 0.82); }
+  48%  { transform: translateY(-58px) scale(0.93, 1.1); }
+  62%  { transform: translateY(0) scale(1.14, 0.8); }
+  76%  { transform: translateY(-6px) scale(0.97, 1.05); }
+  100% { transform: translateY(0) scale(1, 1); }
+}
+@keyframes drop-burst {
+  0%   { opacity: 0; transform: translate(0, 0) scale(0.5); }
+  12%  { opacity: 1; }
+  50%  { opacity: 1; transform: translate(calc(var(--dx, 0px) * 0.7), var(--dy, -80px)) scale(1); }
+  100% { opacity: 0; transform: translate(var(--dx, 0px), calc(var(--dy, -80px) * 0.2 + 30px)) scale(0.8); }
 }

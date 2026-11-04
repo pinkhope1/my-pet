@@ -1,44 +1,74 @@
+import type { PetHost } from "./petHost";
 import { settings } from "./settings";
-import type { DogStateMachine } from "./DogStateMachine";
 import { startWindowDrag } from "./windowControl";
 import { abandonHome } from "./windowMotion";
 
 const MOVE_THRESHOLD_PX = 5;     // сдвиг, после которого нажатие перестаёт быть кликом
 const PET_MIN_DISTANCE_PX = 30;  // сколько нужно «погладить», чтобы стало HAPPY
 const PET_MAX_SPEED = 2.5;       // px/мс: быстрее — это уже не поглаживание
+const DOUBLE_CLICK_MS = 250;     // ждём второй клик столько; не дождались — это одиночный клик
 
 type Mode = "pending" | "pet" | "drag";
 
 /**
- * Жесты ЛКМ на собаке (settings.dragMode):
- *  - короткий клик                → fsm.click()
+ * Жесты ЛКМ на питомце (settings.dragMode). Слушатели висят на стабильном контейнере #app,
+ * а текущего питомца берут из host в момент события — поэтому смена питомца их не ломает.
+ *  - короткий клик                → одиночный (подпрыгивание + символ) или двойной (трюк питомца):
+ *                                   ждём 250 мс — второго клика нет → одиночный
  *  - зажать и плавно водить       → поглаживание → fsm.pet()
  *  - "hold":  подержать ≥ dragHoldMs без движения, потом тянуть → перетаскивание окна
  *  - "shift": Shift + ЛКМ + тянуть → перетаскивание окна
- * Тащить можно всегда: схваченная обиженная собака (OFFENDED) прощает и остаётся на новом месте.
+ * Тащить можно всегда: схваченный обиженный питомец (OFFENDED) прощает и остаётся на новом месте.
  */
-export function initInput(dog: HTMLElement, fsm: DogStateMachine): void {
+export function initInput(area: HTMLElement, host: PetHost): void {
   let down: { x: number; y: number; t: number; mode: Mode } | null = null;
   let last = { x: 0, y: 0, t: 0 };
   let petDistance = 0;
 
-  dog.addEventListener("mousedown", (e) => {
+  const setGrabbed = (on: boolean) => host.el.classList.toggle("grabbed", on);
+
+  // Разбор одиночного/двойного клика. Сам физический клик считается в fsm.click() СРАЗУ
+  // (иначе «5 быстрых кликов = злость» сломалась бы), а реакция откладывается на 250 мс.
+  let clickTimer: number | undefined;
+  const cancelClickTimer = () => {
+    window.clearTimeout(clickTimer);
+    clickTimer = undefined;
+  };
+  const onPhysicalClick = () => {
+    const result = host.fsm.click();
+    if (result !== "ok") {
+      cancelClickTimer(); // 5 быстрых кликов (злость) или клик не для реакции
+      return;
+    }
+    if (clickTimer !== undefined) {
+      cancelClickTimer(); // второй клик за 250 мс → двойной: уникальный трюк питомца
+      host.fsm.trick(host.def.doubleClick);
+    } else {
+      clickTimer = window.setTimeout(() => {
+        clickTimer = undefined;
+        host.fsm.singleClick(); // второго клика не было → одиночный
+      }, DOUBLE_CLICK_MS);
+    }
+  };
+
+  area.addEventListener("mousedown", (e) => {
     if (e.button !== 0) return;
-    fsm.activity();
+    host.fsm.activity();
     down = { x: e.clientX, y: e.clientY, t: e.timeStamp, mode: "pending" };
     last = { x: e.clientX, y: e.clientY, t: e.timeStamp };
     petDistance = 0;
   });
 
   window.addEventListener("mouseup", () => {
-    if (down?.mode === "pending") fsm.click();
+    if (down?.mode === "pending") onPhysicalClick();
     down = null;
-    dog.classList.remove("grabbed");
+    setGrabbed(false);
   });
 
-  dog.addEventListener("mousemove", (e) => {
-    // Наведение на саму собаку (не на прозрачный фон SVG) будит её.
-    if (e.target !== dog) fsm.wake();
+  area.addEventListener("mousemove", (e) => {
+    const fsm = host.fsm;
+    // Наведение на самого питомца (не на прозрачный фон SVG) будит его.
+    if (e.target !== host.el) fsm.wake();
     else fsm.activity();
 
     if (!down || down.mode === "drag") return;
@@ -49,13 +79,15 @@ export function initInput(dog: HTMLElement, fsm: DogStateMachine): void {
         settings.dragMode === "shift" ? e.shiftKey : e.timeStamp - down.t >= settings.dragHoldMs;
       if (wantDrag) {
         down.mode = "drag";
-        dog.classList.add("grabbed");
-        // Обиженную собаку тоже можно утащить: отменяем побег/возврат, обида проходит.
+        setGrabbed(true);
+        // Тащим — любые анимации прерываются (трюк, еда, злость, обида, реакция на клик);
+        // обиженного тоже можно утащить: отменяем побег/возврат, дальше он IDLE на новом месте.
+        cancelClickTimer();
         abandonHome();
         fsm.grab();
         void startWindowDrag().finally(() => {
           down = null;
-          dog.classList.remove("grabbed");
+          setGrabbed(false);
         });
         return;
       }

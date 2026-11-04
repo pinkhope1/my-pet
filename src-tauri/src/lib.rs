@@ -22,6 +22,12 @@ impl Rect {
     }
 }
 
+/// Пункты трея, чьи подписи зависят от питомца: «Покормить» (🦴 / 🍉) и два трюка.
+struct TrayState {
+    feed: tauri::menu::MenuItem<tauri::Wry>,
+    tricks: [tauri::menu::MenuItem<tauri::Wry>; 2],
+}
+
 #[derive(Default)]
 struct HitState {
     regions: Mutex<Vec<Rect>>,
@@ -54,6 +60,15 @@ fn set_poll_interval(window: tauri::WebviewWindow, state: State<'_, HitState>, m
         let _ = window.set_ignore_cursor_events(false);
     }
     state.resync.store(true, Ordering::Relaxed);
+}
+
+/// Фронтенд сообщает подписи пунктов трея для активного питомца.
+#[tauri::command]
+fn set_tray_labels(state: State<'_, TrayState>, feed: String, tricks: Vec<String>) {
+    let _ = state.feed.set_text(feed);
+    for (item, label) in state.tricks.iter().zip(tricks) {
+        let _ = item.set_text(label);
+    }
 }
 
 /// F12: открыть/закрыть DevTools. Только в debug-сборке (`tauri dev`);
@@ -133,13 +148,19 @@ fn spawn_cursor_watcher(app: AppHandle) {
 fn build_tray(app: &tauri::App) -> tauri::Result<()> {
     let toggle = MenuItem::with_id(app, "toggle", "Показать/Скрыть", true, None::<&str>)?;
     let feed = MenuItem::with_id(app, "feed", "Покормить", true, None::<&str>)?;
+    let trick0 = MenuItem::with_id(app, "trick_0", "Трюк 1", true, None::<&str>)?;
+    let trick1 = MenuItem::with_id(app, "trick_1", "Трюк 2", true, None::<&str>)?;
     let call_dog = MenuItem::with_id(app, "call_dog", "Позвать собаку", true, None::<&str>)?;
     let small = MenuItem::with_id(app, "size_150", "Маленький (150×150)", true, None::<&str>)?;
     let medium = MenuItem::with_id(app, "size_300", "Средний (300×300)", true, None::<&str>)?;
     let large = MenuItem::with_id(app, "size_450", "Большой (450×450)", true, None::<&str>)?;
     let size_menu = Submenu::with_items(app, "Размер", true, &[&small, &medium, &large])?;
     let quit = MenuItem::with_id(app, "quit", "Выход", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&toggle, &feed, &call_dog, &size_menu, &quit])?;
+    let menu = Menu::with_items(app, &[&toggle, &feed, &trick0, &trick1, &call_dog, &size_menu, &quit])?;
+    app.manage(TrayState {
+        feed: feed.clone(),
+        tricks: [trick0.clone(), trick1.clone()],
+    });
 
     let mut builder = TrayIconBuilder::with_id("main")
         .tooltip("MyPet")
@@ -156,6 +177,11 @@ fn build_tray(app: &tauri::App) -> tauri::Result<()> {
                             let _ = w.show();
                         }
                     }
+                }
+                "trick_0" | "trick_1" => {
+                    // Индекс трюка уходит во фронтенд: он знает, какой питомец активен.
+                    let idx: u32 = if id == "trick_0" { 0 } else { 1 };
+                    let _ = app.emit("do-trick", idx);
                 }
                 "feed" => {
                     let _ = app.emit("feed-dog", ());
@@ -197,6 +223,7 @@ pub fn run() {
             set_hit_regions,
             set_dragging,
             set_poll_interval,
+            set_tray_labels,
             toggle_devtools,
             quit_app
         ])

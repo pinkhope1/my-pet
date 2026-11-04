@@ -1,47 +1,70 @@
-import type { DogStateMachine } from "./DogStateMachine";
+import type { PetHost } from "./petHost";
+import { PET_IDS, PETS } from "./pets";
 import { MAX_SIZE, MIN_SIZE, settings } from "./settings";
 import { getTargetSize, quitApp, setFrameMin, setHitAll, setWindowSize } from "./windowControl";
 
 const MENU_W = 208;
-const MENU_H = 232;
-/** Минимальный размер окна, пока меню открыто (на малой собаке меню иначе обрезалось бы). */
-const FRAME_MIN = 260;
+const MENU_H = 352;
+/** Минимальный размер окна, пока меню открыто (на малом питомце меню иначе обрезалось бы). */
+const FRAME_MIN = 376;
 const EDGE = 8;
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), Math.max(lo, hi));
 
-/** HTML-меню по правому клику на собаке: размер, «Спать», «Выход». */
-export function initContextMenu(dog: HTMLElement, fsm: DogStateMachine): void {
+/** HTML-меню по правому клику на питомце: размер, действия, смена питомца, выход. */
+export function initContextMenu(host: PetHost): void {
   const menu = document.createElement("div");
   menu.id = "ctx-menu";
   menu.setAttribute("role", "menu");
   menu.innerHTML = /* html */ `
-    <div class="ctx-title">🐶 MyPet</div>
+    <div class="ctx-title" id="ctx-title"></div>
     <label class="ctx-row" for="ctx-size">
       <span>Размер</span><output id="ctx-size-val"></output>
     </label>
     <input id="ctx-size" type="range" min="${MIN_SIZE}" max="${MAX_SIZE}" step="10" />
-    <button id="ctx-feed" type="button" role="menuitem">🦴 Покормить</button>
+    <button id="ctx-feed" type="button" role="menuitem"></button>
+    <button id="ctx-trick-0" type="button" role="menuitem"></button>
+    <button id="ctx-trick-1" type="button" role="menuitem"></button>
     <button id="ctx-sleep" type="button" role="menuitem">🌙 Спать</button>
+    <div class="ctx-section">Сменить питомца</div>
+    <div class="ctx-pets">
+      ${PET_IDS.map((id) => `<button type="button" data-pet="${id}">${PETS[id].title}</button>`).join("")}
+    </div>
     <button id="ctx-quit" type="button" role="menuitem" class="danger">⏻ Выход</button>
-    <div class="ctx-footer" id="ctx-bones"></div>
+    <div class="ctx-footer" id="ctx-food-count"></div>
   `;
   document.body.appendChild(menu);
 
-  const slider = menu.querySelector<HTMLInputElement>("#ctx-size")!;
-  const sizeVal = menu.querySelector<HTMLOutputElement>("#ctx-size-val")!;
-  const bonesLabel = menu.querySelector<HTMLDivElement>("#ctx-bones")!;
+  const q = <T extends HTMLElement>(sel: string) => menu.querySelector<T>(sel)!;
+  const slider = q<HTMLInputElement>("#ctx-size");
+  const sizeVal = q<HTMLOutputElement>("#ctx-size-val");
+  const foodLabel = q<HTMLDivElement>("#ctx-food-count");
+  const trickBtns = [q<HTMLButtonElement>("#ctx-trick-0"), q<HTMLButtonElement>("#ctx-trick-1")];
+  const feedBtn = q<HTMLButtonElement>("#ctx-feed");
+  const title = q<HTMLDivElement>("#ctx-title");
+  const petButtons = menu.querySelectorAll<HTMLButtonElement>(".ctx-pets button");
   let open = false;
 
   const syncLabel = () => {
     sizeVal.textContent = `${slider.value} px`;
   };
 
+  /** Уникальная кнопка показывается только для активного питомца — подпись берём из его описания. */
+  const syncPet = () => {
+    const def = host.def;
+    title.textContent = `MyPet · ${def.title}`;
+    // Кнопки трюков зависят от активного питомца: Играть/Копать у собаки, Пузыри/Танцевать у бегемота.
+    trickBtns.forEach((b, i) => (b.textContent = def.tricks[i].label));
+    feedBtn.textContent = def.feedLabel; // 🦴 у собаки, 🍉 у бегемота
+    foodLabel.textContent = `${def.foodCountLabel}: ${settings[def.foodCounter]}`;
+    petButtons.forEach((b) => b.classList.toggle("active", b.dataset.pet === def.id));
+  };
+
   async function show(x: number, y: number): Promise<void> {
-    fsm.activity();
+    host.fsm.activity();
     slider.value = String(getTargetSize());
     syncLabel();
-    bonesLabel.textContent = `Съедено костей: ${settings.bonesEaten}`;
+    syncPet();
     setHitAll(true); // всё окно «твёрдое»: клик мимо меню закроет его
     await setFrameMin(FRAME_MIN); // дождаться, пока окно вырастет под меню
     const frame = Math.max(getTargetSize(), FRAME_MIN);
@@ -59,11 +82,11 @@ export function initContextMenu(dog: HTMLElement, fsm: DogStateMachine): void {
     await setFrameMin(0);
   }
 
-  // ПКМ: по собаке — наше меню, везде — без системного.
+  // ПКМ: по питомцу — наше меню, везде — без системного.
   document.addEventListener("contextmenu", (e) => {
     e.preventDefault();
-    const onDog = dog.contains(e.target as Node) && e.target !== dog;
-    if (onDog) void show(e.clientX, e.clientY);
+    const onPet = host.el.contains(e.target as Node) && e.target !== host.el;
+    if (onPet) void show(e.clientX, e.clientY);
     else void hide();
   });
 
@@ -77,18 +100,31 @@ export function initContextMenu(dog: HTMLElement, fsm: DogStateMachine): void {
   window.addEventListener("blur", () => void hide());
 
   slider.addEventListener("input", () => {
-    fsm.activity();
+    host.fsm.activity();
     syncLabel();
     void setWindowSize(Number(slider.value));
   });
 
-  menu.querySelector("#ctx-feed")!.addEventListener("click", () => {
-    fsm.feed();
+  q("#ctx-feed").addEventListener("click", () => {
+    host.fsm.feed();
     void hide();
   });
-  menu.querySelector("#ctx-sleep")!.addEventListener("click", () => {
-    fsm.force("SLEEPING");
+  trickBtns.forEach((b, i) =>
+    b.addEventListener("click", () => {
+      host.fsm.trick(host.def.tricks[i].state);
+      void hide();
+    }),
+  );
+  q("#ctx-sleep").addEventListener("click", () => {
+    host.fsm.force("SLEEPING");
     void hide();
   });
-  menu.querySelector("#ctx-quit")!.addEventListener("click", () => void quitApp());
+  petButtons.forEach((b) =>
+    b.addEventListener("click", () => {
+      host.switchTo(b.dataset.pet as "dog" | "hippo");
+      syncPet();
+      void hide();
+    }),
+  );
+  q("#ctx-quit").addEventListener("click", () => void quitApp());
 }

@@ -1,68 +1,55 @@
+import { BONE } from "./bone.svg";
+import { COMMON_DEFS, fxLayer } from "./petParts";
+
+/** Мячик для «🎾 Играть» (собака гоняется за ним и приносит). */
+const BALL = /* html */ `
+    <g transform="translate(150 262)">
+      <g id="ball">
+        <circle r="13" fill="url(#g-ball)" stroke="#8aa616" stroke-width="1"/>
+        <path d="M-12.4 -3.5 Q0 -10 12.4 -3.5 M-12.4 3.5 Q0 10 12.4 3.5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity="0.85"/>
+        <ellipse cx="-4.5" cy="-6" rx="4.5" ry="2.6" fill="#fff" opacity="0.8" transform="rotate(-30 -4.5 -6)"/>
+      </g>
+    </g>`;
+
+/** Частицы земли для «🐾 Копать»: летят из-под передних лап (CSS .dirt, см. style.css). */
+const DIRT = (() => {
+  // x — откуда (относительно центра, у лап), r — радиус, dx/dy — куда летит, d — задержка (с)
+  const defs = [
+    { x: -44, r: 5, dx: -62, dy: -78, d: 0 },
+    { x: -34, r: 4, dx: -38, dy: -96, d: 0.12 },
+    { x: -26, r: 6, dx: -20, dy: -70, d: 0.26 },
+    { x: -38, r: 3.5, dx: -80, dy: -52, d: 0.38 },
+    { x: -30, r: 4.5, dx: -50, dy: -84, d: 0.5 },
+    { x: 26, r: 6, dx: 20, dy: -72, d: 0.06 },
+    { x: 34, r: 4, dx: 40, dy: -98, d: 0.18 },
+    { x: 44, r: 5, dx: 64, dy: -76, d: 0.32 },
+    { x: 38, r: 3.5, dx: 82, dy: -50, d: 0.44 },
+    { x: 30, r: 4.5, dx: 52, dy: -86, d: 0.56 },
+  ];
+  const items = defs
+    .map(
+      (p) => `
+      <g transform="translate(${150 + p.x} 270)">
+        <g class="dirt" style="--dx:${p.dx}px;--dy:${p.dy}px;--d:${p.d}s">
+          <circle r="${p.r}" fill="#8a5a31"/>
+          <circle cx="${-p.r * 0.3}" cy="${-p.r * 0.3}" r="${p.r * 0.38}" fill="#c08a55" opacity="0.75"/>
+        </g>
+      </g>`,
+    )
+    .join("");
+  return `<g id="dirt">${items}</g>`;
+})();
+
 // Собачка в стиле «глянцевый 3D-эмодзи». Чистый SVG, цвета — через CSS-переменные (style.css).
+// Структура и id частей — по контракту из petParts.ts (общие анимации для всех питомцев).
 export const DOG_SVG = /* html */ `
-<svg id="dog" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Собачка">
-  <defs>
-    <radialGradient id="g-fur" cx="38%" cy="28%" r="80%">
-      <stop offset="0" class="s-primary-hi"/>
-      <stop offset="0.45" class="s-primary"/>
-      <stop offset="1" class="s-secondary"/>
-    </radialGradient>
-    <radialGradient id="g-body" cx="40%" cy="25%" r="85%">
-      <stop offset="0" class="s-primary-hi"/>
-      <stop offset="0.5" class="s-primary"/>
-      <stop offset="1" class="s-secondary"/>
-    </radialGradient>
-    <radialGradient id="g-ear" cx="35%" cy="25%" r="90%">
-      <stop offset="0" class="s-ear-hi"/>
-      <stop offset="0.5" class="s-ear"/>
-      <stop offset="1" class="s-secondary"/>
-    </radialGradient>
-    <radialGradient id="g-muzzle" cx="42%" cy="30%" r="80%">
-      <stop offset="0" class="s-belly-hi"/>
-      <stop offset="0.6" class="s-belly"/>
-      <stop offset="1" class="s-belly-lo"/>
-    </radialGradient>
-    <radialGradient id="g-nose" cx="35%" cy="28%" r="75%">
-      <stop offset="0" class="s-nose-hi"/>
-      <stop offset="0.45" class="s-nose"/>
-      <stop offset="1" class="s-nose"/>
-    </radialGradient>
-    <radialGradient id="g-eye" cx="40%" cy="35%" r="75%">
-      <stop offset="0" class="s-eye-hi"/>
-      <stop offset="0.6" class="s-eye"/>
-      <stop offset="1" class="s-eye"/>
-    </radialGradient>
-    <radialGradient id="g-cheek" cx="50%" cy="50%" r="50%">
-      <stop offset="0" stop-color="#ff7a8a" stop-opacity="0.55"/>
-      <stop offset="1" stop-color="#ff7a8a" stop-opacity="0"/>
-    </radialGradient>
-    <radialGradient id="g-shadow" cx="50%" cy="50%" r="50%">
-      <stop offset="0" stop-color="#000" stop-opacity="0.28"/>
-      <stop offset="1" stop-color="#000" stop-opacity="0"/>
-    </radialGradient>
-    <linearGradient id="g-gloss" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#fff" stop-opacity="0.85"/>
-      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
-    </linearGradient>
-    <radialGradient id="g-bone" cx="35%" cy="30%" r="85%">
-      <stop offset="0" stop-color="#ffffff"/>
-      <stop offset="0.5" stop-color="#fff3dc"/>
-      <stop offset="1" stop-color="#f1d9ae"/>
-    </radialGradient>
-    <g id="bone-shapes">
-      <rect x="-26" y="-6.5" width="52" height="13" rx="6.5"/>
-      <circle cx="-29" cy="-7.5" r="8.5"/><circle cx="-29" cy="7.5" r="8.5"/>
-      <circle cx="29" cy="-7.5" r="8.5"/><circle cx="29" cy="7.5" r="8.5"/>
-    </g>
-    <linearGradient id="g-tongue" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#ff8fa3"/>
-      <stop offset="1" stop-color="#e5576f"/>
-    </linearGradient>
-  </defs>
+<svg id="pet" class="pet-dog" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Собачка">
+  <defs>${COMMON_DEFS}${BONE.defs}</defs>
 
   <!-- Тень на земле -->
   <ellipse id="shadow" cx="150" cy="284" rx="88" ry="11" fill="url(#g-shadow)"/>
 
+  <g id="rig">
   <!-- Хвост -->
   <g id="tail">
     <path d="M205 250 C 245 250, 268 222, 258 190 C 254 178, 240 178, 240 190 C 244 212, 232 228, 205 232 Z"
@@ -168,42 +155,16 @@ export const DOG_SVG = /* html */ `
       <path id="tongue" class="hidden" d="M142 170 Q150 192 158 170 Z" fill="url(#g-tongue)"/>
     </g>
   </g>
-
-  <!-- Слой эффектов: сердечки, злость, Zzz (будут добавлены в шаге 4) -->
-  <g id="fx">
-    <!-- Сердечки (HAPPY) -->
-    <g transform="translate(226 62)"><path class="heart h1" d="M0 -5 C -9 -17 -24 -3 0 14 C 24 -3 9 -17 0 -5 Z"/></g>
-    <g transform="translate(70 56)"><path class="heart h2" d="M0 -4 C -7 -14 -19 -2 0 11 C 19 -2 7 -14 0 -4 Z"/></g>
-    <g transform="translate(150 30)"><path class="heart h3" d="M0 -4 C -6 -12 -16 -2 0 9 C 16 -2 6 -12 0 -4 Z"/></g>
-
-    <!-- Косточка (EATING): падает сверху в рот -->
-    <g transform="translate(150 0)">
-      <g id="bone">
-        <use href="#bone-shapes" fill="#d4b98c" stroke="#d4b98c" stroke-width="3.5" stroke-linejoin="round"/>
-        <use href="#bone-shapes" fill="url(#g-bone)"/>
-        <ellipse cx="-4" cy="-3.2" rx="20" ry="2.2" fill="#fff" opacity="0.75"/>
-      </g>
-    </g>
-
-    <!-- «+1» после съеденной косточки -->
-    <g transform="translate(184 78)">
-      <text class="plus1" font-family="Segoe UI, Arial, sans-serif" font-weight="800" font-size="30"
-            fill="#ff5d8a" stroke="#fff" stroke-width="3" paint-order="stroke" text-anchor="middle">+1</text>
-    </g>
-
-    <!-- Знак злости (ANGRY) -->
-    <g transform="translate(232 52)">
-      <g id="anger">
-        <path d="M-14 -14 L-5 -5 M14 -14 L5 -5 M-14 14 L-5 5 M14 14 L5 5" />
-      </g>
-    </g>
-
-    <!-- Zzz (SLEEPING) -->
-    <g id="zzz" font-family="Georgia, serif" font-weight="bold" fill="#6b8cff" stroke="#fff" stroke-width="1.5" paint-order="stroke">
-      <text class="z z1" x="214" y="84" font-size="30">Z</text>
-      <text class="z z2" x="236" y="58" font-size="22">z</text>
-      <text class="z z3" x="252" y="38" font-size="16">z</text>
-    </g>
   </g>
+
+  ${fxLayer({
+    hearts: [[226, 62], [70, 56], [150, 30]],
+    plus: [184, 78],
+    react: [150, 36],
+    anger: [232, 52],
+    zzz: [[214, 84, 30], [236, 58, 22], [252, 38, 16]],
+    food: BONE.markup,
+    extra: BALL + DIRT,
+  })}
 </svg>
 `;

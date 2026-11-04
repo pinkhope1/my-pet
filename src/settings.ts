@@ -6,6 +6,9 @@ const SAVE_DEBOUNCE_MS = 400;
 
 export type ColorKey = "primary" | "secondary" | "ear" | "belly" | "nose" | "eye";
 export type DragMode = "hold" | "shift";
+export type PetId = "dog" | "hippo";
+/** Отдельный счётчик съеденного для каждого питомца: кости — собаке, арбузы — бегемоту. */
+export type FoodCounter = "bonesEaten" | "melonsEaten";
 
 export interface Settings {
   /** Размер окна (квадрат), px. */
@@ -15,8 +18,12 @@ export interface Settings {
   dragHoldMs: number;
   /** Цвета → CSS-переменные --dog-<key>. Пусто = цвета по умолчанию из style.css. */
   colors: Partial<Record<ColorKey, string>>;
-  /** Счётчик съеденных косточек. */
+  /** Съедено косточек (собака). */
   bonesEaten: number;
+  /** Съедено арбузных долек (бегемот). */
+  melonsEaten: number;
+  /** Какой питомец показан (запоминается между запусками). */
+  currentPet: PetId;
 }
 
 export const DEFAULT_SIZE = 300;
@@ -33,6 +40,8 @@ export const settings: Settings = {
   dragHoldMs: 350,
   colors: {},
   bonesEaten: 0,
+  melonsEaten: 0,
+  currentPet: "dog",
 };
 
 /** Приводим всё прочитанное из файла к безопасным значениям. */
@@ -46,13 +55,15 @@ function sanitize(raw: unknown): Settings {
   }
   const size = Number(r.size);
   const hold = Number(r.dragHoldMs);
-  const bones = Number(r.bonesEaten);
+  const count = (v: unknown) => (Number.isFinite(Number(v)) ? Math.max(0, Math.floor(Number(v))) : 0);
   return {
     size: Number.isFinite(size) ? Math.min(MAX_SIZE, Math.max(MIN_SIZE, Math.round(size))) : DEFAULT_SIZE,
     dragMode: r.dragMode === "shift" ? "shift" : "hold",
     dragHoldMs: Number.isFinite(hold) ? Math.max(0, Math.round(hold)) : 350,
     colors,
-    bonesEaten: Number.isFinite(bones) ? Math.max(0, Math.floor(bones)) : 0,
+    bonesEaten: count(r.bonesEaten),
+    melonsEaten: count(r.melonsEaten),
+    currentPet: r.currentPet === "hippo" ? "hippo" : "dog",
   };
 }
 
@@ -111,10 +122,14 @@ export async function flushSettings(): Promise<void> {
   await writeNow();
 }
 
-/** +1 съеденная косточка (сохраняется в settings.json). */
-export function addBoneEaten(): number {
-  updateSettings({ bonesEaten: settings.bonesEaten + 1 });
-  return settings.bonesEaten;
+/** +1 к счётчику еды питомца (bonesEaten / melonsEaten), сохраняется в settings.json. */
+export function addFoodEaten(counter: FoodCounter): number {
+  updateSettings({ [counter]: settings[counter] + 1 });
+  return settings[counter];
+}
+
+export function setCurrentPet(id: PetId): void {
+  updateSettings({ currentPet: id });
 }
 
 export function setDragMode(mode: DragMode): void {
