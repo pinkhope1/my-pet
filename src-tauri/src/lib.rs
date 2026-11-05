@@ -1,8 +1,8 @@
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Mutex;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tauri::menu::{Menu, MenuItem, Submenu};
 use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -28,8 +28,24 @@ struct TrayState {
     tricks: [tauri::menu::MenuItem<tauri::Wry>; 2],
 }
 
+/// Скорость мыши (логические px/мс), выше которой проход считается «быстрым».
+const FAST_CURSOR_PX_PER_MS: f64 = 1.1;
+/// Курсор считается «рядом с окном» в пределах этого запаса вокруг него (логические px).
+const CURSOR_MARGIN: f64 = 60.0;
+
+/// Событие `cursor-move` для фронтенда: положение курсора относительно окна и скорость.
+#[derive(Serialize, Clone)]
+struct CursorMove {
+    x: f64,
+    y: f64,
+    speed: f64,
+    fast: bool,
+}
+
 #[derive(Default)]
 struct HitState {
+    /// Питомец в CATCHING: присылаем положение курсора каждый тик, чтобы глаза следили за ним.
+    tracking: AtomicBool,
     regions: Mutex<Vec<Rect>>,
     dragging: AtomicBool,
     /// Период опроса курсора, мс. 0 = опрос приостановлен (поток спит и ждёт).
@@ -60,6 +76,12 @@ fn set_poll_interval(window: tauri::WebviewWindow, state: State<'_, HitState>, m
         let _ = window.set_ignore_cursor_events(false);
     }
     state.resync.store(true, Ordering::Relaxed);
+}
+
+/// CATCHING включает/выключает слежение за курсором (события `cursor-move` каждый тик).
+#[tauri::command]
+fn set_tracking(state: State<'_, HitState>, on: bool) {
+    state.tracking.store(on, Ordering::Relaxed);
 }
 
 /// Фронтенд сообщает подписи пунктов трея для активного питомца.
@@ -99,6 +121,8 @@ fn quit_app(app: AppHandle) {
 fn spawn_cursor_watcher(app: AppHandle) {
     std::thread::spawn(move || {
         let mut ignoring: Option<bool> = None;
+        // Предыдущее положение курсора и момент замера — для скорости мыши (delta / время).
+        let mut prev: Option<(f64, f64, Instant)> = None;
         loop {
             let state = app.state::<HitState>();
             if state.resync.swap(false, Ordering::Relaxed) {
@@ -132,6 +156,39 @@ fn spawn_cursor_watcher(app: AppHandle) {
             };
             let lx = (cursor.x - origin.x as f64) / scale;
             let ly = (cursor.y - origin.y as f64) / scale;
+
+            // Скорость мыши по данным этого же потока: расстояние между тиками / прошедшее время.
+            // Если тики шли с паузой (сон, перетаскивание), старый замер не годится — speed = 0.
+            let now = Instant::now();
+            let speed = match prev {
+                Some((px, py, t)) => {
+                    let dt = now.duration_since(t).as_secs_f64() * 1000.0;
+                    if dt > 0.0 && dt < 250.0 {
+                        ((lx - px).powi(2) + (ly - py).powi(2)).sqrt() / dt
+                    } else {
+                        0.0
+                    }
+                }
+                None => 0.0,
+            };
+            prev = Some((lx, ly, now));
+
+            // Быстрый проход рядом с окном (или идёт CATCHING) — сообщаем фронтенду. Он сам решит,
+            // рядом ли голова, и пошлёт питомца ловить курсор. Событие идёт и тогда, когда курсор над
+            // прозрачной областью (окно его игнорирует) — именно поэтому считаем в Rust.
+            let fast = speed >= FAST_CURSOR_PX_PER_MS;
+            if fast || state.tracking.load(Ordering::Relaxed) {
+                if let Ok(size) = win.inner_size() {
+                    let (w, h) = (size.width as f64 / scale, size.height as f64 / scale);
+                    if lx >= -CURSOR_MARGIN
+                        && lx <= w + CURSOR_MARGIN
+                        && ly >= -CURSOR_MARGIN
+                        && ly <= h + CURSOR_MARGIN
+                    {
+                        let _ = app.emit("cursor-move", CursorMove { x: lx, y: ly, speed, fast });
+                    }
+                }
+            }
             let want_ignore = !regions.iter().any(|r| r.contains(lx, ly));
             if ignoring != Some(want_ignore)
                 && win.set_ignore_cursor_events(want_ignore).is_ok()
@@ -155,8 +212,12 @@ fn build_tray(app: &tauri::App) -> tauri::Result<()> {
     let medium = MenuItem::with_id(app, "size_300", "Средний (300×300)", true, None::<&str>)?;
     let large = MenuItem::with_id(app, "size_450", "Большой (450×450)", true, None::<&str>)?;
     let size_menu = Submenu::with_items(app, "Размер", true, &[&small, &medium, &large])?;
+    let pet_dog = MenuItem::with_id(app, "pet_dog", "🐶 Собачка", true, None::<&str>)?;
+    let pet_hippo = MenuItem::with_id(app, "pet_hippo", "🦛 Бегемотик", true, None::<&str>)?;
+    let pet_panda = MenuItem::with_id(app, "pet_panda", "🐼 Панда", true, None::<&str>)?;
+    let pet_menu = Submenu::with_items(app, "Питомец", true, &[&pet_dog, &pet_hippo, &pet_panda])?;
     let quit = MenuItem::with_id(app, "quit", "Выход", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&toggle, &feed, &trick0, &trick1, &call_dog, &size_menu, &quit])?;
+    let menu = Menu::with_items(app, &[&toggle, &feed, &trick0, &trick1, &call_dog, &pet_menu, &size_menu, &quit])?;
     app.manage(TrayState {
         feed: feed.clone(),
         tricks: [trick0.clone(), trick1.clone()],
@@ -182,6 +243,10 @@ fn build_tray(app: &tauri::App) -> tauri::Result<()> {
                     // Индекс трюка уходит во фронтенд: он знает, какой питомец активен.
                     let idx: u32 = if id == "trick_0" { 0 } else { 1 };
                     let _ = app.emit("do-trick", idx);
+                }
+                "pet_dog" | "pet_hippo" | "pet_panda" => {
+                    // Смена питомца: фронтенд подменит SVG и запомнит выбор в settings.json.
+                    let _ = app.emit("set-pet", &id["pet_".len()..]);
                 }
                 "feed" => {
                     let _ = app.emit("feed-dog", ());
@@ -224,6 +289,7 @@ pub fn run() {
             set_dragging,
             set_poll_interval,
             set_tray_labels,
+            set_tracking,
             toggle_devtools,
             quit_app
         ])

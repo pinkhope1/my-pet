@@ -154,6 +154,9 @@ export const DOG_SVG = /* html */ `
       </g>
       <path id="tongue" class="hidden" d="M142 170 Q150 192 158 170 Z" fill="url(#g-tongue)"/>
     </g>
+
+    <!-- Аксессуары (колпак, очки, корона): сюда вставляет PetHost.setAccessory -->
+    <g id="accessories"></g>
   </g>
   </g>
 

@@ -1,5 +1,7 @@
+import type { Anchors } from "./accessories";
 import { DOG_SVG } from "./dog.svg";
 import { HIPPO_SVG } from "./hippo.svg";
+import { PANDA_SVG } from "./panda.svg";
 import type { TrickState } from "./PetStateMachine";
 import type { FoodCounter, PetId } from "./settings";
 
@@ -11,8 +13,13 @@ export interface Trick {
 /** Описание питомца. Новый питомец = новый SVG по контракту из petParts.ts + запись здесь. */
 export interface PetDef {
   id: PetId;
-  /** Название в меню «Сменить питомца». */
+  /** Название в меню «Сменить питомца» и в заголовке меню. */
   title: string;
+  /** Эмодзи и короткое имя для кнопки смены питомца. */
+  emoji: string;
+  name: string;
+  /** Где у питомца голова — по этим точкам садятся аксессуары. */
+  anchors: Anchors;
   svg: string;
   /** Две уникальные кнопки трюков (меню по ПКМ и трей); показываются только при этом питомце. */
   tricks: [Trick, Trick];
@@ -30,6 +37,9 @@ export const PETS: Record<PetId, PetDef> = {
   dog: {
     id: "dog",
     title: "🐶 Собачка",
+    emoji: "🐶",
+    name: "Собачка",
+    anchors: { hatX: 150, hatY: 66, hatTilt: 8, eyeY: 121, eyeDx: 32, glassScale: 1 },
     svg: DOG_SVG,
     tricks: [
       { state: "PLAYING", label: "🎾 Играть" },
@@ -43,6 +53,9 @@ export const PETS: Record<PetId, PetDef> = {
   hippo: {
     id: "hippo",
     title: "🦛 Бегемотик",
+    emoji: "🦛",
+    name: "Бегемотик",
+    anchors: { hatX: 150, hatY: 70, hatTilt: 8, eyeY: 106, eyeDx: 38, glassScale: 1.05 },
     svg: HIPPO_SVG,
     tricks: [
       { state: "PLAYING", label: "🫧 Пузыри" },
@@ -52,6 +65,22 @@ export const PETS: Record<PetId, PetDef> = {
     feedLabel: "🍉 Покормить",
     foodCounter: "melonsEaten",
     foodCountLabel: "Съедено арбузов",
+  },
+  panda: {
+    id: "panda",
+    title: "🐼 Панда",
+    emoji: "🐼",
+    name: "Панда",
+    anchors: { hatX: 150, hatY: 66, hatTilt: 8, eyeY: 119, eyeDx: 37, glassScale: 1.1 },
+    svg: PANDA_SVG,
+    tricks: [
+      { state: "ROLLING", label: "🤸 Кувырок" },
+      { state: "NINJA", label: "🥋 Ниндзя" },
+    ],
+    doubleClick: "NINJA",
+    feedLabel: "🎋 Покормить",
+    foodCounter: "bamboosEaten",
+    foodCountLabel: "Съедено бамбука",
   },
 };
 

@@ -4,6 +4,7 @@ import "./style.css";
 import { initContextMenu } from "./contextMenu";
 import { initInput } from "./input";
 import { PetHost } from "./petHost";
+import type { PetId } from "./settings";
 import { addFoodEaten, loadSettings, setColors, setDragMode } from "./settings";
 import {
   initWindowControl,
@@ -14,6 +15,19 @@ import {
   setWindowSize,
 } from "./windowControl";
 import { returnHome, runAway } from "./windowMotion";
+
+const invokeIfTauri = (cmd: string, args: Record<string, unknown>) =>
+  IS_TAURI ? invoke(cmd, args) : Promise.resolve();
+
+const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), Math.max(lo, hi));
+
+/** Событие Rust-потока опроса курсора: положение (логические px окна) и признак быстрого движения. */
+interface CursorMove {
+  x: number;
+  y: number;
+  speed: number;
+  fast: boolean;
+}
 
 async function bootstrap(): Promise<void> {
   // Сначала настройки: цвета (CSS-переменные), dragMode, размер окна, выбранный питомец.
@@ -31,6 +45,10 @@ async function bootstrap(): Promise<void> {
       // ANGRY → OFFENDED: убегаем к краю экрана; выход из OFFENDED — возвращаемся.
       if (next === "OFFENDED") void runAway();
       else if (prev === "OFFENDED") void returnHome();
+
+      // CATCHING: Rust начинает присылать положение курсора каждые 50 мс (глаза следят); после — перестаёт.
+      if (next === "CATCHING") void invokeIfTauri("set_tracking", { on: true });
+      else if (prev === "CATCHING") void invokeIfTauri("set_tracking", { on: false });
 
       // SLEEPING: Rust-опрос курсора на паузе; при пробуждении возобновляем.
       setPollInterval(next === "SLEEPING" ? 0 : 50);
@@ -51,6 +69,24 @@ async function bootstrap(): Promise<void> {
   if (IS_TAURI) {
     void listen("call-dog", () => host.fsm.callBack());
     void listen("feed-dog", () => host.fsm.feed());
+    // Смена питомца из трея.
+    void listen<PetId>("set-pet", (e) => host.switchTo(e.payload));
+    // Реакция на курсор: Rust считает скорость мыши в потоке опроса (тот же, что для click-through).
+    // Здесь только решаем, «рядом ли с головой», и куда смотреть.
+    void listen<CursorMove>("cursor-move", (e) => {
+      const head = host.el.querySelector("#head")?.getBoundingClientRect();
+      const face = host.el.querySelector("#face")?.getBoundingClientRect();
+      if (!head || !face) return;
+      const { x, y, fast } = e.payload;
+      const m = 60; // «рядом с головой»: запас вокруг рамки головы (с аксессуаром)
+      const near = x >= head.left - m && x <= head.right + m && y >= head.top - m && y <= head.bottom + m * 0.6;
+      host.fsm.cursorMove({
+        fast,
+        near,
+        lookX: clamp((x - (face.left + face.width / 2)) / (face.width / 2), -1, 1),
+        lookY: clamp((y - (face.top + face.height * 0.45)) / (face.height / 2), -1, 1),
+      });
+    });
     // Трюки из трея: индекс 0/1 → кнопки активного питомца.
     void listen<number>("do-trick", (e) => {
       const t = host.def.tricks[e.payload];

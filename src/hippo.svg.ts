@@ -203,6 +203,9 @@ export const HIPPO_SVG = /* html */ `
       </g>
       <path id="tongue" class="hidden" d="M138 193 Q150 218 162 193 Z" fill="url(#g-tongue)"/>
     </g>
+
+    <!-- Аксессуары (колпак, очки, корона): сюда вставляет PetHost.setAccessory -->
+    <g id="accessories"></g>
   </g>
   </g>
 

@@ -1,11 +1,15 @@
 /** Состояния-трюки: общие для всех питомцев, но у каждого питомца свои кнопки и своя картинка (CSS). */
-export type TrickState = "PLAYING" | "DIGGING" | "DANCING" | "SPINNING" | "SPLASHING";
+export type TrickState =
+  | "PLAYING" | "DIGGING" | "DANCING" | "SPINNING" | "SPLASHING"
+  | "ROLLING" | "NINJA";
 
-export type PetState = "IDLE" | "HAPPY" | "ANGRY" | "OFFENDED" | "SLEEPING" | "EATING" | TrickState;
+export type PetState =
+  | "IDLE" | "HAPPY" | "ANGRY" | "OFFENDED" | "SLEEPING" | "EATING" | "CATCHING"
+  | TrickState;
 
 const ALL_STATES: PetState[] = [
   "IDLE", "HAPPY", "ANGRY", "OFFENDED", "SLEEPING", "EATING",
-  "PLAYING", "DIGGING", "DANCING", "SPINNING", "SPLASHING",
+  "CATCHING", "PLAYING", "DIGGING", "DANCING", "SPINNING", "SPLASHING", "ROLLING", "NINJA",
 ];
 
 /** Длительность трюков, мс (совпадает с длительностью CSS-анимаций в style.css). */
@@ -15,6 +19,8 @@ const TRICK_MS: Record<TrickState, number> = {
   DANCING: 3000,   // танцует → IDLE
   SPINNING: 1500,  // крутится и садится → IDLE
   SPLASHING: 1500, // «бомбочка» → IDLE
+  ROLLING: 1800,   // кувырок (сальто) и встаёт → IDLE
+  NINJA: 1500,     // пируэт и боевая стойка → IDLE
 };
 
 // Тайминги (мс)
@@ -28,6 +34,7 @@ const FORGIVE_MAX_GAP = 600;       // пауза в поглаживании д�
 const EAT_LAND_MS = 900;           // еда падает 0,9 с и «съедается» (совпадает с CSS food-fall)
 const EAT_DURATION = 2400;         // падение + жевание, затем HAPPY
 const REACT_MS = 1000;             // реакция на одиночный клик: подпрыгивание + символ
+const CATCH_HOLD = 1000;           // CATCHING длится ~1 с после последнего быстрого движения мыши
 
 /** Символы над головой при одиночном клике: [символ, цвет]. */
 const REACT_SYMBOLS: [string, string][] = [
@@ -84,6 +91,17 @@ export interface PetHooks {
   onEat?: () => void;
 }
 
+/** Данные о курсоре от Rust-потока (скорость посчитана там) + положение относительно питомца. */
+export interface CursorInfo {
+  /** Мышь движется быстро (порог задан в Rust, поток опроса курсора). */
+  fast: boolean;
+  /** Курсор над головой питомца или рядом с ней. */
+  near: boolean;
+  /** Куда смотреть: -1…1 по осям относительно центра головы. */
+  lookX: number;
+  lookY: number;
+}
+
 /** Результат физического клика (см. PetStateMachine.click). */
 export type ClickResult = "ok" | "burst" | "ignored";
 
@@ -99,6 +117,7 @@ export type ClickResult = "ok" | "burst" | "ignored";
  *   любое (кроме ANGRY) ──«покормить»──▶ EATING ──2,4 с──▶ HAPPY ──1,5 с──▶ IDLE
  *   IDLE/HAPPY/SLEEPING ──трюк из меню / двойной клик──▶ PLAYING | DIGGING | DANCING | SPINNING | SPLASHING
  *       (PLAYING → HAPPY, остальные → IDLE)
+ *   IDLE/HAPPY ──быстро провели мышью у головы──▶ CATCHING ──1 с после остановки мыши──▶ IDLE
  *   любое ──схватили и тащат──▶ IDLE (анимации прерываются)
  *
  * Одиночный клик не меняет состояние: на IDLE/HAPPY он лишь добавляет класс `reacting`
@@ -223,8 +242,26 @@ export class PetStateMachine {
   trick(state: TrickState): void {
     this.activity();
     const s = this._state;
-    if (s !== "IDLE" && s !== "HAPPY" && s !== "SLEEPING") return;
+    if (s !== "IDLE" && s !== "HAPPY" && s !== "SLEEPING" && s !== "CATCHING") return;
     this.transition(state, TRICK_MS[state], state === "PLAYING" ? "HAPPY" : "IDLE");
+  }
+
+  /**
+   * Курсор от Rust-потока опроса (раз в ~50 мс, пока мышь движется быстро или идёт CATCHING).
+   * Быстрый проход у головы → CATCHING: питомец поднимает лапу, глаза следят за курсором;
+   * состояние держится ~1 с после последнего быстрого движения.
+   */
+  cursorMove(m: CursorInfo): void {
+    if (this.disposed) return;
+    const s = this._state;
+    if (s === "CATCHING") {
+      this.look(m);
+      if (m.fast && m.near) this.armStateTimer(CATCH_HOLD, "IDLE"); // мышь ещё носится — продлеваем
+      return;
+    }
+    if (!m.fast || !m.near || (s !== "IDLE" && s !== "HAPPY")) return;
+    this.transition("CATCHING", CATCH_HOLD, "IDLE");
+    this.look(m);
   }
 
   /** Остановить все таймеры (при смене питомца старая машина больше не нужна). */
@@ -269,6 +306,15 @@ export class PetStateMachine {
     return s === "EATING" || s in TRICK_MS;
   }
 
+  /** Глаза следят за курсором, лапа поднимается со стороны курсора (CSS: --look-x/y, .catch-left/right). */
+  private look(m: CursorInfo): void {
+    this.root.style.setProperty("--look-x", m.lookX.toFixed(2));
+    this.root.style.setProperty("--look-y", m.lookY.toFixed(2));
+    const left = m.lookX < 0;
+    this.root.classList.toggle("catch-left", left);
+    this.root.classList.toggle("catch-right", !left);
+  }
+
   private endReaction(): void {
     window.clearTimeout(this.reactTimer);
     this.reactTimer = undefined;
@@ -297,6 +343,11 @@ export class PetStateMachine {
     window.clearTimeout(this.eatTimer);
     this.eatTimer = undefined;
     this.endReaction(); // реакция на клик не переживает смену состояния
+    if (prev === "CATCHING") {
+      this.root.classList.remove("catch-left", "catch-right");
+      this.root.style.removeProperty("--look-x");
+      this.root.style.removeProperty("--look-y");
+    }
 
     this._state = next;
     this.forgiveStart = 0;

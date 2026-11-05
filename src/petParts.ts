@@ -7,7 +7,9 @@
  *                     #head > ( #ears > (#ear-left, #ear-right), #face, #muzzle,
  *                               #brows > (#brow-left, #brow-right),
  *                               #eyes > (#eyes-open, #eyes-happy, #eyes-closed), #tear,
- *                               #nose, #mouth > (#mouth-smile, #mouth-open, #tongue) ) ),
+ *                               #nose, #mouth > (#mouth-smile, #mouth-open, #tongue),
+ *                               #accessories  — пустая группа ПОВЕРХ головы (последний ребёнок #head), под #fx:
+ *                               сюда PetHost.setAccessory кладёт колпак/очки/корону по точкам PetDef.anchors ) ),
  *   #fx (сердечки .heart, #food, .plus1, .react-sym, #anger, #zzz .z, + свои эффекты трюков)
  * Цвета берутся из CSS-переменных --dog-primary, --dog-secondary, … (см. style.css).
  */

@@ -6,9 +6,11 @@ const SAVE_DEBOUNCE_MS = 400;
 
 export type ColorKey = "primary" | "secondary" | "ear" | "belly" | "nose" | "eye";
 export type DragMode = "hold" | "shift";
-export type PetId = "dog" | "hippo";
-/** Отдельный счётчик съеденного для каждого питомца: кости — собаке, арбузы — бегемоту. */
-export type FoodCounter = "bonesEaten" | "melonsEaten";
+export type PetId = "dog" | "hippo" | "panda";
+/** Аксессуар на голове питомца (общий для всех питомцев, сохраняется). */
+export type AccessoryId = "none" | "party" | "glasses" | "crown";
+/** Отдельный счётчик съеденного для каждого питомца: кости — собаке, арбузы — бегемоту, бамбук — панде. */
+export type FoodCounter = "bonesEaten" | "melonsEaten" | "bamboosEaten";
 
 export interface Settings {
   /** Размер окна (квадрат), px. */
@@ -22,8 +24,12 @@ export interface Settings {
   bonesEaten: number;
   /** Съедено арбузных долек (бегемот). */
   melonsEaten: number;
+  /** Съедено побегов бамбука (панда). */
+  bamboosEaten: number;
   /** Какой питомец показан (запоминается между запусками). */
   currentPet: PetId;
+  /** Надетый аксессуар. */
+  accessory: AccessoryId;
 }
 
 export const DEFAULT_SIZE = 300;
@@ -41,7 +47,9 @@ export const settings: Settings = {
   colors: {},
   bonesEaten: 0,
   melonsEaten: 0,
+  bamboosEaten: 0,
   currentPet: "dog",
+  accessory: "none",
 };
 
 /** Приводим всё прочитанное из файла к безопасным значениям. */
@@ -63,7 +71,10 @@ function sanitize(raw: unknown): Settings {
     colors,
     bonesEaten: count(r.bonesEaten),
     melonsEaten: count(r.melonsEaten),
-    currentPet: r.currentPet === "hippo" ? "hippo" : "dog",
+    bamboosEaten: count(r.bamboosEaten),
+    currentPet: r.currentPet === "hippo" || r.currentPet === "panda" ? r.currentPet : "dog",
+    accessory:
+      r.accessory === "party" || r.accessory === "glasses" || r.accessory === "crown" ? r.accessory : "none",
   };
 }
 
@@ -126,6 +137,10 @@ export async function flushSettings(): Promise<void> {
 export function addFoodEaten(counter: FoodCounter): number {
   updateSettings({ [counter]: settings[counter] + 1 });
   return settings[counter];
+}
+
+export function setAccessoryId(id: AccessoryId): void {
+  updateSettings({ accessory: id });
 }
 
 export function setCurrentPet(id: PetId): void {

@@ -86,13 +86,15 @@ html.paused { animation-play-state: paused !important; }
 #pet.state-playing #eyes-open,
 #pet.state-dancing #eyes-open,
 #pet.state-spinning #eyes-open,
-#pet.state-splashing #eyes-open { display: none; }
+#pet.state-splashing #eyes-open,
+#pet.state-rolling #eyes-open { display: none; }
 #pet.state-happy #eyes-happy,
 #pet.state-eating #eyes-happy,
 #pet.state-playing #eyes-happy,
 #pet.state-dancing #eyes-happy,
 #pet.state-spinning #eyes-happy,
-#pet.state-splashing #eyes-happy { display: inline; }
+#pet.state-splashing #eyes-happy,
+#pet.state-rolling #eyes-happy { display: inline; }
 #pet.state-happy #tongue { display: inline; }
 #pet.state-happy #tail,
 #pet.state-eating #tail,
@@ -475,3 +477,120 @@ html.paused { animation-play-state: paused !important; }
   50%  { opacity: 1; transform: translate(calc(var(--dx, 0px) * 0.7), var(--dy, -80px)) scale(1); }
   100% { opacity: 0; transform: translate(var(--dx, 0px), calc(var(--dy, -80px) * 0.2 + 30px)) scale(0.8); }
 }
+
+
+/* =====================================================================
+   CATCHING: быстро провели мышью у головы — питомец поднимает лапу со стороны курсора
+   и ловит его, глаза следят (--look-x/--look-y ставит PetStateMachine, события — из Rust).
+   ===================================================================== */
+#pet.state-catching #eyes-open {
+  transform: translate(calc(var(--look-x, 0) * 5px), calc(var(--look-y, 0) * 4px));
+  transition: transform 0.08s linear;
+}
+#pet.state-catching #head { transform: rotate(calc(var(--look-x, 0) * 4deg)) translateY(-2px); }
+#pet.state-catching #brow-left,
+#pet.state-catching #brow-right { transform: translateY(-4px); }
+#pet.state-catching.catch-left  #paw-left  { animation: catch-paw-l 0.26s ease-in-out infinite alternate; }
+#pet.state-catching.catch-right #paw-right { animation: catch-paw-r 0.26s ease-in-out infinite alternate; }
+
+@keyframes catch-paw-l {
+  from { transform: translate(-2px, -46px) rotate(-10deg); }
+  to   { transform: translate(-12px, -70px) rotate(-26deg); }
+}
+@keyframes catch-paw-r {
+  from { transform: translate(2px, -46px) rotate(10deg); }
+  to   { transform: translate(12px, -70px) rotate(26deg); }
+}
+
+/* =====================================================================
+   Панда: палитра, ушки, трюки ROLLING (кувырок) и NINJA (пируэт + боевая стойка)
+   ===================================================================== */
+#pet.pet-panda {
+  --dog-primary: #fbfbff;
+  --dog-secondary: #c4c7da;
+  --dog-ear: #2a2a33;
+  --dog-belly: #ffffff;
+  --dog-nose: #17171d;
+  --dog-eye: #2a2a37;
+  --mouth-y: 186px;
+}
+/* Круглые ушки крепятся снизу — поворачиваем вокруг основания */
+#pet.pet-panda #ear-left  { transform-origin: 60% 90%; }
+#pet.pet-panda #ear-right { transform-origin: 40% 90%; }
+#pet.pet-panda.state-angry #ear-left  { transform: rotate(-42deg) scale(1, 0.8); }
+#pet.pet-panda.state-angry #ear-right { transform: rotate(42deg) scale(1, 0.8); }
+#pet.pet-panda.state-offended #ear-left  { transform: rotate(-24deg) scale(1, 0.9); }
+#pet.pet-panda.state-offended #ear-right { transform: rotate(24deg) scale(1, 0.9); }
+#pet.pet-panda.state-sleeping #ear-left  { transform: rotate(-10deg); }
+#pet.pet-panda.state-sleeping #ear-right { transform: rotate(10deg); }
+/* Глаза панды на чёрных пятнах: брови тёмные, линии «закрытых» глаз белые (заданы в SVG) */
+
+/* ---------- ROLLING (1,8 с): присел, прыжок, кувырок назад вокруг центра, встал ---------- */
+#pet.pet-panda #rig { transform-origin: 50% 62%; }
+#pet.pet-panda.state-rolling #rig { animation: panda-roll 1.8s ease-in-out both; }
+
+@keyframes panda-roll {
+  0%   { transform: translateY(0) rotate(0deg) scale(1, 1); }
+  12%  { transform: translateY(8px) rotate(0deg) scale(1.08, 0.86); }
+  30%  { transform: translateY(-34px) rotate(-100deg) scale(0.97, 1.03); }
+  52%  { transform: translateY(-42px) rotate(-220deg) scale(1, 1); }
+  72%  { transform: translateY(-22px) rotate(-320deg); }
+  88%  { transform: translateY(0) rotate(-360deg) scale(1.1, 0.86); }
+  100% { transform: translateY(0) rotate(-360deg) scale(1, 1); }
+}
+
+/* ---------- NINJA (двойной клик, 1,5 с): быстрый пируэт, красная повязка, боевая стойка ---------- */
+#ninja-band { opacity: 0; }
+#pet.pet-panda.state-ninja #rig { animation: panda-ninja 1.5s ease-in-out both; transform-origin: 50% 100%; }
+#pet.pet-panda.state-ninja #ninja-band { animation: appear 0.2s ease-out 0.5s both; }
+#pet.pet-panda.state-ninja #brow-left  { transform: translateY(5px) rotate(18deg); }
+#pet.pet-panda.state-ninja #brow-right { transform: translateY(5px) rotate(-18deg); }
+#pet.pet-panda.state-ninja #paw-left  { animation: ninja-fist-l 1.5s ease-out both; }
+#pet.pet-panda.state-ninja #paw-right { animation: ninja-fist-r 1.5s ease-out both; }
+
+@keyframes panda-ninja {
+  0%   { transform: translateY(0) scaleX(1); }
+  7%   { transform: translateY(-12px) scaleX(0.08); }
+  14%  { transform: translateY(-16px) scaleX(-1); }
+  21%  { transform: translateY(-12px) scaleX(0.08); }
+  28%  { transform: translateY(0) scaleX(1); }
+  35%  { transform: translateY(-10px) scaleX(0.08); }
+  42%  { transform: translateY(-14px) scaleX(-1); }
+  49%  { transform: translateY(-10px) scaleX(0.08); }
+  56%  { transform: translateY(0) scaleX(1); }
+  66%  { transform: translateY(6px) rotate(-4deg) scale(1.06, 0.92); }
+  100% { transform: translateY(2px) rotate(-6deg) scale(1.04, 0.96); }
+}
+@keyframes ninja-fist-l {
+  0%, 58% { transform: none; }
+  72%, 100% { transform: translate(-6px, -58px) rotate(-12deg); }
+}
+@keyframes ninja-fist-r {
+  0%, 58% { transform: none; }
+  72%, 100% { transform: translate(6px, -58px) rotate(12deg); }
+}
+@keyframes appear { from { opacity: 0; } to { opacity: 1; } }
+
+/* =====================================================================
+   Меню v0.4: сетка действий, аксессуары, три питомца
+   ===================================================================== */
+.ctx-head { padding: 2px 6px 6px; }
+.ctx-title { padding: 0; }
+.ctx-sub { font-size: 11px; color: var(--menu-muted); margin-top: 1px; }
+.ctx-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 6px; }
+#ctx-menu .ctx-grid button {
+  margin: 0; padding: 7px 4px; font-size: 12px; text-align: center;
+  border: 1px solid var(--menu-border);
+}
+.ctx-chips { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+#ctx-menu .ctx-chips button {
+  margin: 0; padding: 6px 0; font-size: 11px; text-align: center;
+  border: 1px solid var(--menu-border);
+}
+#ctx-menu .ctx-chips button.active {
+  background: var(--menu-accent); border-color: transparent; color: #2b1d0a; font-weight: 600;
+}
+.ctx-pets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+#ctx-menu .ctx-pets button { padding: 5px 0; font-size: 10.5px; line-height: 1.2; }
+#ctx-menu .ctx-pets .e { display: block; font-size: 18px; line-height: 1.15; }
+#ctx-menu button.danger { margin-top: 6px; }

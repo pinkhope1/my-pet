@@ -22,6 +22,10 @@ settings.json
 *.log
 npm-debug.log*
 
+# Installed app files (if the installer was pointed at the project folder)
+/mypet.exe
+/uninstall.exe
+
 # OS files
 .DS_Store
 Thumbs.db
