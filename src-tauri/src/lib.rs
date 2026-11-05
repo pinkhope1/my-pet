@@ -109,10 +109,106 @@ fn toggle_devtools(window: tauri::WebviewWindow) {
     let _ = window;
 }
 
+/// Отправить файл в системную Корзину (его «съел» питомец при перетаскивании файла на него).
+///
+/// Это единственное место, где приложение что-то удаляет, поэтому проверки строгие:
+///  - только абсолютный путь к обычному существующему файлу (не папка, не ссылка);
+///  - никогда сам exe приложения и его папка настроек;
+///  - файл уходит именно в Корзину (восстановить можно), а не удаляется насовсем.
+#[tauri::command]
+async fn move_to_trash(app: AppHandle, path: String) -> Result<(), String> {
+    let p = std::path::PathBuf::from(&path);
+    if !p.is_absolute() {
+        return Err("нужен абсолютный путь".into());
+    }
+    let meta = std::fs::symlink_metadata(&p).map_err(|e| format!("файл недоступен: {e}"))?;
+    if !meta.is_file() {
+        return Err("в Корзину отправляются только обычные файлы".into());
+    }
+    let canon = std::fs::canonicalize(&p).map_err(|e| e.to_string())?;
+    if let Ok(exe) = std::env::current_exe().and_then(std::fs::canonicalize) {
+        if canon == exe {
+            return Err("это сама программа".into());
+        }
+    }
+    if let Ok(dir) = app.path().app_data_dir() {
+        if let Ok(dir) = std::fs::canonicalize(dir) {
+            if canon.starts_with(&dir) {
+                return Err("это файл настроек программы".into());
+            }
+        }
+    }
+    // Корзина — системный вызов, который может подвиснуть: не блокируем основной поток.
+    tauri::async_runtime::spawn_blocking(move || trash::delete(&p).map_err(|e| e.to_string()))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 /// Выход из приложения (меню по ПКМ).
 #[tauri::command]
 fn quit_app(app: AppHandle) {
     app.exit(0);
+}
+
+/// Поднять окно в самый верх группы «поверх всех окон», не отбирая фокус.
+///
+/// Флаг always_on_top у окна один раз выставляется при создании, но другие программы (браузер, игры,
+/// тяжёлые приложения, тоже «topmost») могут оказаться выше нашего окна. Повторный вызов
+/// `set_always_on_top(true)` ничего не даёт, если флаг уже стоит, поэтому на Windows вызываем
+/// `SetWindowPos(HWND_TOPMOST, … SWP_NOACTIVATE)` напрямую: это переставляет окно на вершину z-порядка.
+#[cfg(windows)]
+fn bump_topmost(win: &tauri::WebviewWindow) {
+    use std::ffi::c_void;
+
+    #[link(name = "user32")]
+    extern "system" {
+        fn SetWindowPos(
+            hwnd: *mut c_void,
+            insert_after: *mut c_void,
+            x: i32,
+            y: i32,
+            cx: i32,
+            cy: i32,
+            flags: u32,
+        ) -> i32;
+    }
+    const HWND_TOPMOST: isize = -1;
+    const SWP_NOSIZE: u32 = 0x0001;
+    const SWP_NOMOVE: u32 = 0x0002;
+    const SWP_NOACTIVATE: u32 = 0x0010;
+    const SWP_NOOWNERZORDER: u32 = 0x0200;
+
+    if let Ok(hwnd) = win.hwnd() {
+        // SAFETY: hwnd — живой дескриптор нашего окна; флаги не двигают, не меняют размер и не активируют окно.
+        unsafe {
+            SetWindowPos(
+                hwnd.0 as *mut c_void,
+                HWND_TOPMOST as *mut c_void,
+                0,
+                0,
+                0,
+                0,
+                SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE | SWP_NOOWNERZORDER,
+            );
+        }
+    }
+}
+
+#[cfg(not(windows))]
+fn bump_topmost(win: &tauri::WebviewWindow) {
+    let _ = win.set_always_on_top(true);
+}
+
+/// Раз в 1,5 с «пинаем» окно наверх, пока оно видимо (дёшево: один системный вызов).
+fn spawn_topmost_keeper(app: AppHandle) {
+    std::thread::spawn(move || loop {
+        std::thread::sleep(Duration::from_millis(1500));
+        if let Some(win) = app.get_webview_window("main") {
+            if win.is_visible().unwrap_or(false) {
+                bump_topmost(&win);
+            }
+        }
+    });
 }
 
 /// Поток-«сторож»: раз в ~50 мс сверяет позицию курсора с хитбоксами и
@@ -290,10 +386,20 @@ pub fn run() {
             set_poll_interval,
             set_tray_labels,
             set_tracking,
+            move_to_trash,
             toggle_devtools,
             quit_app
         ])
+        // Окно потеряло фокус (кликнули в браузер) — сразу возвращаем наверх, не ждём очередного «пинка».
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::Focused(false) = event {
+                if let Some(win) = window.app_handle().get_webview_window("main") {
+                    bump_topmost(&win);
+                }
+            }
+        })
         .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .setup(|app| {
             // Папка настроек: %APPDATA%\com.mypet.dog (fs-плагин сам родителей не создаёт).
             if let Ok(dir) = app.path().app_data_dir() {
@@ -301,6 +407,7 @@ pub fn run() {
             }
             build_tray(app)?;
             spawn_cursor_watcher(app.handle().clone());
+            spawn_topmost_keeper(app.handle().clone());
             Ok(())
         })
         .run(tauri::generate_context!())

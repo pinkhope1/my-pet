@@ -24,6 +24,16 @@ export function refreshHitRegions(): void {
   void invoke("set_hit_regions", { regions });
 }
 
+/** Лежит ли точка (px окна) на питомце — по тем же рамкам, что используются для сквозных кликов. */
+export function isOverPet(x: number, y: number): boolean {
+  return HIT_SELECTORS.some((sel) => {
+    const el = document.querySelector(sel);
+    if (!el) return false;
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+  });
+}
+
 export function setHitAll(on: boolean): void {
   hitAll = on;
   refreshHitRegions();

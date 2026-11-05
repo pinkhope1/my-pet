@@ -1,9 +1,12 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import "./style.css";
+import { ClipboardWatcher } from "./clipboard";
 import { initContextMenu } from "./contextMenu";
+import { FileEater, initFileDrop } from "./fileDrop";
 import { initInput } from "./input";
 import { PetHost } from "./petHost";
+import type { PetHooks } from "./PetStateMachine";
 import type { PetId } from "./settings";
 import { addFoodEaten, loadSettings, setColors, setDragMode } from "./settings";
 import {
@@ -37,10 +40,19 @@ async function bootstrap(): Promise<void> {
   const app = document.getElementById("app");
   if (!app) throw new Error("#app not found");
 
+  // Питомец «ест» новый текст из буфера обмена (опрос раз в секунду, всегда, в том числе пока он спит;
+  // текст не сохраняется).
+  const clipboard = new ClipboardWatcher(() => {
+    host.fsm.eatText();
+  });
+  let fileEater!: FileEater; // создаётся после host
+
   // Хуки общие для всех питомцев: хост пересоздаёт машину состояний, а хуки остаются те же.
-  const host = new PetHost(app, {
-    // Еда долетела до рта: +1 в счётчик этого питомца (кости / арбузы, settings.json).
+  const hooks: PetHooks = {
+    // Еда долетела до рта: +1 в счётчик этого питомца (кости / арбузы / бамбук, settings.json).
     onEat: () => addFoodEaten(host.def.foodCounter),
+    // Иконка файла долетела до рта: файл уходит в Корзину.
+    onFileEaten: () => void fileEater.trashPending(),
     onChange: (next, prev) => {
       // ANGRY → OFFENDED: убегаем к краю экрана; выход из OFFENDED — возвращаемся.
       if (next === "OFFENDED") void runAway();
@@ -51,21 +63,28 @@ async function bootstrap(): Promise<void> {
       else if (prev === "CATCHING") void invokeIfTauri("set_tracking", { on: false });
 
       // SLEEPING: Rust-опрос курсора на паузе; при пробуждении возобновляем.
+      // Опрос буфера обмена от сна НЕ зависит: скопированный текст будит спящего питомца (он его съест).
       setPollInterval(next === "SLEEPING" ? 0 : 50);
+
       // Поза изменилась (уши, голова, трюк) — хитбоксы заново: сразу и когда CSS-переходы
       // (0,25 с) доиграют, иначе рамки остались бы по промежуточной позе.
       requestAnimationFrame(refreshHitRegions);
       window.setTimeout(refreshHitRegions, 320);
     },
-  });
+  };
+
+  // После каждой подстановки питомца опрос буфера нужно (пере)запустить: новая машина состояний бодрствует.
+  const host: PetHost = new PetHost(app, hooks, () => void clipboard.start());
+  fileEater = new FileEater(host);
   host.mount(settings.currentPet);
+  initFileDrop(fileEater); // файлы, брошенные на питомца, он «съедает» → Корзина
 
   // Окно скрыто (трей) — замораживаем все CSS-анимации.
   document.addEventListener("visibilitychange", () =>
     document.documentElement.classList.toggle("paused", document.hidden),
   );
 
-  // Меню трея: «Позвать собаку» (OFFENDED → IDLE) и «Покормить».
+  // Меню трея: «Позвать питомца» (OFFENDED → IDLE) и «Покормить».
   if (IS_TAURI) {
     void listen("call-dog", () => host.fsm.callBack());
     void listen("feed-dog", () => host.fsm.feed());
@@ -108,7 +127,9 @@ async function bootstrap(): Promise<void> {
 
   initInput(app, host);
   initWindowControl(app, () => host.fsm.activity());
-  initContextMenu(host);
+  initContextMenu(host, {
+    onClipboardToggle: (on) => (on ? void clipboard.start() : clipboard.stop()),
+  });
 
   // Восстановить сохранённый размер окна (без повторной записи в файл).
   if (IS_TAURI && settings.size !== Math.round(window.innerWidth)) {
@@ -116,7 +137,12 @@ async function bootstrap(): Promise<void> {
   }
 
   // Для отладки из консоли.
-  Object.assign(window, { petHost: host, pet: { setColors, setDragMode, settings } });
+  Object.assign(window, {
+    petHost: host,
+    petEater: fileEater,
+    petClipboard: clipboard,
+    pet: { setColors, setDragMode, settings },
+  });
 }
 
 void bootstrap();

@@ -67,6 +67,10 @@ export const COMMON_DEFS = /* html */ `
       <stop offset="0.55" stop-color="#cfee3a"/>
       <stop offset="1" stop-color="#97b81c"/>
     </radialGradient>
+    <linearGradient id="g-doc" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#d9e5fb"/>
+    </linearGradient>
     <radialGradient id="g-bubble" cx="50%" cy="50%" r="50%">
       <stop offset="0" stop-color="#ffffff" stop-opacity="0.04"/>
       <stop offset="0.7" stop-color="#bfe6ff" stop-opacity="0.22"/>
@@ -75,6 +79,26 @@ export const COMMON_DEFS = /* html */ `
 `;
 
 type Pt = [number, number];
+
+/** Символы для EATING_TEXT: откуда летят (sx, sy — смещение от рта, px SVG) и с какой задержкой. */
+const CHARS = (() => {
+  const defs = [
+    { c: "A", sx: -92, sy: -78, d: 0, col: "#3d8bff" },
+    { c: "1", sx: 86, sy: -96, d: 0.08, col: "#ff7a45" },
+    { c: "@", sx: -64, sy: -118, d: 0.16, col: "#a06bff" },
+    { c: "B", sx: 100, sy: -56, d: 0.24, col: "#1fb27a" },
+    { c: "#", sx: -104, sy: -40, d: 0.32, col: "#ff5d8a" },
+    { c: "7", sx: 50, sy: -124, d: 0.4, col: "#e0a100" },
+    { c: "$", sx: -30, sy: -132, d: 0.48, col: "#12a4c9" },
+  ];
+  return defs
+    .map(
+      (d) => `<text class="char" style="--sx:${d.sx}px;--sy:${d.sy}px;--d:${d.d}s"
+            font-family="Consolas, 'Courier New', monospace" font-weight="800" font-size="22" fill="${d.col}"
+            stroke="#fff" stroke-width="2.4" paint-order="stroke" text-anchor="middle" dominant-baseline="central">${d.c}</text>`,
+    )
+    .join("\n      ");
+})();
 
 export interface FxOptions {
   /** Три сердечка (HAPPY/EATING). */
@@ -134,6 +158,17 @@ export function fxLayer(o: FxOptions): string {
       <text class="z z1" x="${z1[0]}" y="${z1[1]}" font-size="${z1[2]}">Z</text>
       <text class="z z2" x="${z2[0]}" y="${z2[1]}" font-size="${z2[2]}">z</text>
       <text class="z z3" x="${z3[0]}" y="${z3[1]}" font-size="${z3[2]}">z</text>
+    </g>
+    <!-- Эффекты «еды снаружи» привязаны ко рту питомца (CSS-переменная --mouth-y) -->
+    <g class="mouth-anchor">
+      <!-- Символы, слетающиеся ко рту при EATING_TEXT (не настоящий текст из буфера — он нигде не показывается) -->
+      ${CHARS}
+      <!-- Иконка файла, летящая от курсора ко рту при EATING_FILE -->
+      <g class="docfly">
+        <path d="M-13 -17 H5 L13 -9 V17 H-13 Z" fill="url(#g-doc)" stroke="#8aa0c8" stroke-width="1.6" stroke-linejoin="round"/>
+        <path d="M5 -17 V-9 H13" fill="#dfe8f7" stroke="#8aa0c8" stroke-width="1.6" stroke-linejoin="round"/>
+        <path d="M-8 -2 H8 M-8 4 H8 M-8 10 H2" fill="none" stroke="#9fb3d6" stroke-width="2" stroke-linecap="round"/>
+      </g>
     </g>
     ${o.extra ?? ""}
   </g>`;

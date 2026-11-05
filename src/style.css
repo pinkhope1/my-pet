@@ -87,14 +87,18 @@ html.paused { animation-play-state: paused !important; }
 #pet.state-dancing #eyes-open,
 #pet.state-spinning #eyes-open,
 #pet.state-splashing #eyes-open,
-#pet.state-rolling #eyes-open { display: none; }
+#pet.state-rolling #eyes-open,
+#pet.state-eating_text #eyes-open,
+#pet.state-eating_file #eyes-open { display: none; }
 #pet.state-happy #eyes-happy,
 #pet.state-eating #eyes-happy,
 #pet.state-playing #eyes-happy,
 #pet.state-dancing #eyes-happy,
 #pet.state-spinning #eyes-happy,
 #pet.state-splashing #eyes-happy,
-#pet.state-rolling #eyes-happy { display: inline; }
+#pet.state-rolling #eyes-happy,
+#pet.state-eating_text #eyes-happy,
+#pet.state-eating_file #eyes-happy { display: inline; }
 #pet.state-happy #tongue { display: inline; }
 #pet.state-happy #tail,
 #pet.state-eating #tail,
@@ -594,3 +598,87 @@ html.paused { animation-play-state: paused !important; }
 #ctx-menu .ctx-pets button { padding: 5px 0; font-size: 10.5px; line-height: 1.2; }
 #ctx-menu .ctx-pets .e { display: block; font-size: 18px; line-height: 1.15; }
 #ctx-menu button.danger { margin-top: 6px; }
+
+
+/* =====================================================================
+   «Еда снаружи»: питомец ест текст из буфера обмена (EATING_TEXT)
+   и файлы, брошенные на него (EATING_FILE). Эффекты привязаны ко рту
+   через .mouth-anchor и CSS-переменную --mouth-y питомца.
+   ===================================================================== */
+.mouth-anchor { transform: translate(150px, var(--mouth-y, 166px)); transform-origin: 0 0; transform-box: view-box; }
+.char { opacity: 0; }
+.docfly { opacity: 0; }
+
+/* ---------- EATING_TEXT (3,3 с): символы слетаются ко рту (0,9 с), жуёт 1,5 с, облизывается ---------- */
+#pet.state-eating_text #mouth-smile {
+  display: inline;
+  opacity: 0;
+  animation: appear 0.01s linear 2.4s both;
+}
+#pet.state-eating_text #mouth-open {
+  display: inline;
+  animation:
+    mouth-catch 0.5s ease-out both,
+    mouth-chew 0.3s ease-in-out 0.9s 5 alternate,
+    vanish 0.01s linear 2.4s forwards;
+}
+#pet.state-eating_text .char { animation: char-fly 0.6s ease-in var(--d, 0s) both; }
+#pet.state-eating_text #tongue {
+  display: inline;
+  opacity: 0;
+  animation: appear 0.01s linear 2.4s both, lick-sway 0.3s ease-in-out 2.4s 3 alternate;
+}
+
+@keyframes char-fly {
+  0%   { opacity: 0; transform: translate(var(--sx, 0px), var(--sy, -80px)) scale(1) rotate(-25deg); }
+  18%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(0, 0) scale(0.2) rotate(25deg); }
+}
+@keyframes vanish { to { opacity: 0; } }
+@keyframes lick-sway {
+  from { transform: translateX(-7px); }
+  to   { transform: translateX(7px); }
+}
+
+/* ---------- EATING_FILE (2,3 с): иконка файла летит от места броска ко рту (0,8 с), жуёт 1,4 с ---------- */
+#pet.state-eating_file #mouth-smile { display: none; }
+#pet.state-eating_file #mouth-open {
+  display: inline;
+  animation:
+    mouth-catch 0.5s ease-out both,
+    mouth-chew 0.28s ease-in-out 0.8s 5 alternate;
+}
+#pet.state-eating_file .docfly { animation: doc-fly 0.8s ease-in both; }
+
+@keyframes doc-fly {
+  0%   { opacity: 1; transform: translate(var(--file-x, 0px), var(--file-y, -120px)) scale(1) rotate(-10deg); }
+  80%  { opacity: 1; transform: translate(0, 0) scale(0.6) rotate(6deg); }
+  100% { opacity: 0; transform: translate(0, 0) scale(0.2) rotate(10deg); }
+}
+
+/* Файлы над питомцем (перетаскивание из проводника): рот открывается в ожидании */
+#pet.hungry #mouth-smile { display: none; }
+#pet.hungry #mouth-open { display: inline; transform: scale(0.9, 0.95); }
+
+/* Меню: переключатели «есть буфер» и «есть файлы» в заголовке */
+.ctx-headrow { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.ctx-toggles { display: flex; gap: 2px; }
+#ctx-menu .ctx-toggles button {
+  width: 26px; height: 24px; margin: 0; padding: 0; text-align: center; font-size: 13px; line-height: 1;
+  border-radius: 7px; opacity: 0.45; filter: grayscale(1);
+}
+#ctx-menu .ctx-toggles button.active {
+  opacity: 1; filter: none; background: var(--menu-hover);
+}
+
+/* Компактнее: меню вместе с отступами должно помещаться в окно 380 px */
+#ctx-menu { padding: 8px; }
+.ctx-head { padding: 0 6px 4px; }
+.ctx-section { margin: 6px 6px 3px; padding-top: 6px; }
+.ctx-grid { margin-top: 4px; }
+#ctx-menu .ctx-grid button { padding: 5px 4px; }
+#ctx-menu .ctx-chips button { padding: 4px 0; }
+#ctx-menu .ctx-pets button { padding: 3px 0; }
+#ctx-menu .ctx-pets .e { font-size: 16px; line-height: 1.1; }
+#ctx-menu input[type="range"] { margin: 4px 0 6px; }
+#ctx-menu button.danger { margin-top: 4px; padding: 6px 10px; }

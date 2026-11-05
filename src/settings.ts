@@ -30,6 +30,10 @@ export interface Settings {
   currentPet: PetId;
   /** Надетый аксессуар. */
   accessory: AccessoryId;
+  /** Питомец «ест» новый текст из буфера обмена (только детектирует смену, текст не хранится). */
+  eatClipboard: boolean;
+  /** Питомец «съедает» (отправляет в Корзину) файлы, брошенные на него. */
+  eatFiles: boolean;
 }
 
 export const DEFAULT_SIZE = 300;
@@ -50,6 +54,8 @@ export const settings: Settings = {
   bamboosEaten: 0,
   currentPet: "dog",
   accessory: "none",
+  eatClipboard: true,
+  eatFiles: true,
 };
 
 /** Приводим всё прочитанное из файла к безопасным значениям. */
@@ -75,6 +81,8 @@ function sanitize(raw: unknown): Settings {
     currentPet: r.currentPet === "hippo" || r.currentPet === "panda" ? r.currentPet : "dog",
     accessory:
       r.accessory === "party" || r.accessory === "glasses" || r.accessory === "crown" ? r.accessory : "none",
+    eatClipboard: r.eatClipboard !== false,
+    eatFiles: r.eatFiles !== false,
   };
 }
 

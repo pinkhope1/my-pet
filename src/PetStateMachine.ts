@@ -5,10 +5,11 @@ export type TrickState =
 
 export type PetState =
   | "IDLE" | "HAPPY" | "ANGRY" | "OFFENDED" | "SLEEPING" | "EATING" | "CATCHING"
+  | "EATING_TEXT" | "EATING_FILE"
   | TrickState;
 
 const ALL_STATES: PetState[] = [
-  "IDLE", "HAPPY", "ANGRY", "OFFENDED", "SLEEPING", "EATING",
+  "IDLE", "HAPPY", "ANGRY", "OFFENDED", "SLEEPING", "EATING", "EATING_TEXT", "EATING_FILE",
   "CATCHING", "PLAYING", "DIGGING", "DANCING", "SPINNING", "SPLASHING", "ROLLING", "NINJA",
 ];
 
@@ -33,6 +34,9 @@ const FORGIVE_NEEDED = 3000;       // сколько нужно нежно гл�
 const FORGIVE_MAX_GAP = 600;       // пауза в поглаживании дольше этого сбрасывает отсчёт
 const EAT_LAND_MS = 900;           // еда падает 0,9 с и «съедается» (совпадает с CSS food-fall)
 const EAT_DURATION = 2400;         // падение + жевание, затем HAPPY
+const EAT_TEXT_MS = 3300;          // символы слетаются (0,9 с) + жуёт 1,5 с + облизывается → IDLE
+const EAT_FILE_MS = 2300;          // иконка файла летит в рот (0,8 с) + жуёт 1,4 с → IDLE
+const EAT_FILE_LAND_MS = 800;      // момент «проглатывания» файла (совпадает с CSS doc-fly)
 const REACT_MS = 1000;             // реакция на одиночный клик: подпрыгивание + символ
 const CATCH_HOLD = 1000;           // CATCHING длится ~1 с после последнего быстрого движения мыши
 
@@ -89,6 +93,8 @@ export interface PetHooks {
   onChange?: (next: PetState, prev: PetState) => void;
   /** Еда долетела до рта и съедена (здесь увеличиваем счётчик). */
   onEat?: () => void;
+  /** Иконка файла долетела до рта (EATING_FILE): здесь файл уходит в Корзину. */
+  onFileEaten?: () => void;
 }
 
 /** Данные о курсоре от Rust-потока (скорость посчитана там) + положение относительно питомца. */
@@ -100,6 +106,12 @@ export interface CursorInfo {
   /** Куда смотреть: -1…1 по осям относительно центра головы. */
   lookX: number;
   lookY: number;
+}
+
+/** Откуда летит иконка файла: смещение от рта питомца в единицах SVG (viewBox 300). */
+export interface FileDrop {
+  fromX: number;
+  fromY: number;
 }
 
 /** Результат физического клика (см. PetStateMachine.click). */
@@ -118,6 +130,8 @@ export type ClickResult = "ok" | "burst" | "ignored";
  *   IDLE/HAPPY/SLEEPING ──трюк из меню / двойной клик──▶ PLAYING | DIGGING | DANCING | SPINNING | SPLASHING
  *       (PLAYING → HAPPY, остальные → IDLE)
  *   IDLE/HAPPY ──быстро провели мышью у головы──▶ CATCHING ──1 с после остановки мыши──▶ IDLE
+ *   IDLE/HAPPY/CATCHING/SLEEPING ──новый текст в буфере обмена──▶ EATING_TEXT ──3,3 с──▶ IDLE
+ *   IDLE/HAPPY/CATCHING ──файл брошен на питомца──▶ EATING_FILE ──2,3 с──▶ IDLE (файл уходит в Корзину на 0,8 с)
  *   любое ──схватили и тащат──▶ IDLE (анимации прерываются)
  *
  * Одиночный клик не меняет состояние: на IDLE/HAPPY он лишь добавляет класс `reacting`
@@ -264,6 +278,39 @@ export class PetStateMachine {
     this.look(m);
   }
 
+  /**
+   * Питомец «ест» новый текст из буфера обмена (ничего не сохраняется — только анимация).
+   * Возвращает true, если принял: из IDLE/HAPPY/CATCHING, а СПЯЩИЙ питомец просыпается и ест
+   * (опрос буфера идёт всегда). После еды — IDLE, дальше он может снова уснуть. Занятый, злой
+   * или обиженный питомец пропускает.
+   */
+  eatText(): boolean {
+    if (!this.canEatNow() && this._state !== "SLEEPING") return false;
+    this.activity();
+    this.transition("EATING_TEXT", EAT_TEXT_MS, "IDLE");
+    return true;
+  }
+
+  /**
+   * Файл брошен на питомца: иконка летит от места броска ко рту, питомец жуёт, а в момент проглатывания
+   * вызывается hooks.onFileEaten (там файл уходит в Корзину). true — питомец принял файл; если нет
+   * (занят, злой, спит…), с файлом ничего не происходит.
+   */
+  eatFile(drop: FileDrop): boolean {
+    if (!this.canEatNow()) return false;
+    this.activity();
+    this.root.style.setProperty("--file-x", `${Math.round(drop.fromX)}px`);
+    this.root.style.setProperty("--file-y", `${Math.round(drop.fromY)}px`);
+    this.transition("EATING_FILE", EAT_FILE_MS, "IDLE");
+    return true;
+  }
+
+  /** Может ли питомец сейчас что-то съесть «снаружи» (буфер, файл): только бодрствующий и спокойный. */
+  canEatNow(): boolean {
+    const s = this._state;
+    return !this.disposed && (s === "IDLE" || s === "HAPPY" || s === "CATCHING");
+  }
+
   /** Остановить все таймеры (при смене питомца старая машина больше не нужна). */
   dispose(): void {
     this.disposed = true;
@@ -303,7 +350,7 @@ export class PetStateMachine {
   /** Занят едой или трюком: поглаживания, кормление и новые трюки игнорируются. */
   private isBusy(): boolean {
     const s = this._state;
-    return s === "EATING" || s in TRICK_MS;
+    return s === "EATING" || s === "EATING_TEXT" || s === "EATING_FILE" || s in TRICK_MS;
   }
 
   /** Глаза следят за курсором, лапа поднимается со стороны курсора (CSS: --look-x/y, .catch-left/right). */
@@ -343,6 +390,10 @@ export class PetStateMachine {
     window.clearTimeout(this.eatTimer);
     this.eatTimer = undefined;
     this.endReaction(); // реакция на клик не переживает смену состояния
+    if (prev === "EATING_FILE") {
+      this.root.style.removeProperty("--file-x");
+      this.root.style.removeProperty("--file-y");
+    }
     if (prev === "CATCHING") {
       this.root.classList.remove("catch-left", "catch-right");
       this.root.style.removeProperty("--look-x");
@@ -359,6 +410,11 @@ export class PetStateMachine {
         this.eatTimer = undefined;
         this.hooks.onEat?.();
       }, EAT_LAND_MS);
+    } else if (next === "EATING_FILE") {
+      this.eatTimer = window.setTimeout(() => {
+        this.eatTimer = undefined;
+        this.hooks.onFileEaten?.();
+      }, EAT_FILE_LAND_MS);
     }
 
     if (next === "SLEEPING" || next === "OFFENDED") {
